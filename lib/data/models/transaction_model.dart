@@ -10,9 +10,10 @@ class TransactionModel {
   late String title;
   late double amount;
   late DateTime date;
-  late String type; // 'burn' or 'store'
+  late String type; // 'burn', 'store', or 'transfer'
   late String note;
   int? accountId;
+  int? toAccountId; // destination account for transfers
 
   final category = IsarLink<CategoryModel>();
 }

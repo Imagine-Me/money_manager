@@ -13,11 +13,13 @@ class AnalyticsEngine {
 
     final currentTotal = _sumBurn(
       transactions.where((t) =>
+          t.type == TransactionType.burn &&
           !t.date.isBefore(currentWeekStart) && !t.date.isAfter(now)),
     );
 
     final lastTotal = _sumBurn(
       transactions.where((t) =>
+          t.type == TransactionType.burn &&
           !t.date.isBefore(lastWeekStart) &&
           t.date.isBefore(currentWeekStart)),
     );

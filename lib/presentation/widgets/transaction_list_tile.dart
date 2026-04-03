@@ -17,9 +17,12 @@ class TransactionListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTransfer = transaction.isTransfer;
     final isBurn = transaction.isBurn;
-    final amountColor = isBurn ? AppTheme.burnColor : AppTheme.storeColor;
-    final amountPrefix = isBurn ? '-' : '+';
+    final amountColor = isTransfer
+        ? AppTheme.primaryColor
+        : (isBurn ? AppTheme.burnColor : AppTheme.storeColor);
+    final amountPrefix = isTransfer ? '⇄ ' : (isBurn ? '-' : '+');
     final cat = transaction.category;
 
     return Dismissible(
@@ -38,17 +41,23 @@ class TransactionListTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
             children: [
-              // Category icon bubble
+              // Category / transfer icon bubble
               Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: (cat?.color ?? Colors.grey).withValues(alpha: 0.15),
+                  color: isTransfer
+                      ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                      : (cat?.color ?? Colors.grey).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
-                  cat?.icon ?? Icons.receipt,
-                  color: cat?.color ?? Colors.grey,
+                  isTransfer
+                      ? Icons.compare_arrows_rounded
+                      : (cat?.icon ?? Icons.receipt),
+                  color: isTransfer
+                      ? AppTheme.primaryColor
+                      : (cat?.color ?? Colors.grey),
                   size: 22,
                 ),
               ),

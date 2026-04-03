@@ -26,6 +26,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   TransactionType _type = TransactionType.burn;
   CategoryEntity? _selectedCategory;
   AccountEntity? _selectedAccount; // null = use primary
+  AccountEntity? _toAccount; // destination for transfer type
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
 
@@ -74,6 +75,23 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
       );
     }
 
+    // Resolve destination account for transfer
+    AccountEntity? effectiveTo = _toAccount;
+    if (_type == TransactionType.transfer &&
+        effectiveTo == null &&
+        accounts.isNotEmpty) {
+      final toId = widget.existing?.toAccountId;
+      if (toId != null) {
+        try {
+          effectiveTo = accounts.firstWhere((a) => a.id == toId);
+        } catch (_) {}
+      }
+      effectiveTo ??= accounts.firstWhere(
+        (a) => a.id != effectiveAccount?.id,
+        orElse: () => accounts.last,
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
       appBar: AppBar(
@@ -97,38 +115,40 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
               ),
               const SizedBox(height: 20),
 
-              // ─── Title ──────────────────────────────────────────────────────
-              _FieldLabel(label: 'Title'),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Lunch at Café',
-                  prefixIcon: Icon(Icons.title_rounded),
+              // ─── Title + Category (hidden for transfers) ──────────────────
+              if (_type != TransactionType.transfer) ...[  
+                _FieldLabel(label: 'Title'),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    hintText: 'e.g. Lunch at Café',
+                    prefixIcon: Icon(Icons.title_rounded),
+                  ),
+                  style: const TextStyle(color: Colors.white),
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => _onTitleChanged(),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Enter a title' : null,
                 ),
-                style: const TextStyle(color: Colors.white),
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) => _onTitleChanged(),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Enter a title' : null,
-              ),
 
-              // ─── Smart Category Search Results ─────────────────────────────
-              _CategorySuggestions(
-                query: _titleController.text,
-                onSelect: (cat) => setState(() => _selectedCategory = cat),
-              ),
-              const SizedBox(height: 20),
+                // ─── Smart Category Search Results ──────────────────────────
+                _CategorySuggestions(
+                  query: _titleController.text,
+                  onSelect: (cat) => setState(() => _selectedCategory = cat),
+                ),
+                const SizedBox(height: 20),
 
-              // ─── Selected Category chip ─────────────────────────────────────
-              _FieldLabel(label: 'Category'),
-              const SizedBox(height: 8),
-              _CategoryPicker(
-                selected: _selectedCategory,
-                type: _type,
-                onChanged: (cat) => setState(() => _selectedCategory = cat),
-              ),
-              const SizedBox(height: 20),
+                // ─── Selected Category chip ─────────────────────────────────
+                _FieldLabel(label: 'Category'),
+                const SizedBox(height: 8),
+                _CategoryPicker(
+                  selected: _selectedCategory,
+                  type: _type,
+                  onChanged: (cat) => setState(() => _selectedCategory = cat),
+                ),
+                const SizedBox(height: 20),
+              ],
 
               // ─── Amount ──────────────────────────────────────────────────────
               _FieldLabel(label: 'Amount (${AppConstants.currencySymbol})'),
@@ -163,15 +183,33 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
               ),
               const SizedBox(height: 20),
 
-              // ─── Account ──────────────────────────────────────────────────
+              // ─── Account / From + To (for transfer) ──────────────────────
               if (accounts.isNotEmpty) ...[  
-                _FieldLabel(label: 'Account'),
-                const SizedBox(height: 8),
-                _AccountPicker(
-                  accounts: accounts,
-                  selected: effectiveAccount,
-                  onChanged: (a) => setState(() => _selectedAccount = a),
-                ),
+                if (_type == TransactionType.transfer) ...[  
+                  _FieldLabel(label: 'From Account'),
+                  const SizedBox(height: 8),
+                  _AccountPicker(
+                    accounts: accounts,
+                    selected: effectiveAccount,
+                    onChanged: (a) => setState(() => _selectedAccount = a),
+                  ),
+                  const SizedBox(height: 16),
+                  _FieldLabel(label: 'To Account'),
+                  const SizedBox(height: 8),
+                  _AccountPicker(
+                    accounts: accounts,
+                    selected: effectiveTo,
+                    onChanged: (a) => setState(() => _toAccount = a),
+                  ),
+                ] else ...[  
+                  _FieldLabel(label: 'Account'),
+                  const SizedBox(height: 8),
+                  _AccountPicker(
+                    accounts: accounts,
+                    selected: effectiveAccount,
+                    onChanged: (a) => setState(() => _selectedAccount = a),
+                  ),
+                ],
                 const SizedBox(height: 20),
               ],
 
@@ -226,7 +264,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_selectedCategory == null) {
+    if (_type != TransactionType.transfer && _selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a category')),
       );
@@ -238,9 +276,9 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
     try {
       final txRepo = ref.read(transactionRepositoryProvider);
       final amount = double.parse(_amountController.text);
-
-      // Resolve effective account
       final accounts = ref.read(accountListProvider).valueOrNull ?? [];
+
+      // Resolve "from" account
       AccountEntity? resolvedAccount = _selectedAccount;
       if (resolvedAccount == null && accounts.isNotEmpty) {
         final existingAccountId = widget.existing?.accountId;
@@ -256,18 +294,47 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
         );
       }
 
-      final tx = TransactionEntity(
-        id: widget.existing?.id ?? 0,
-        title: _titleController.text.trim(),
-        amount: amount,
-        date: _selectedDate,
-        type: _type,
-        note: _noteController.text.trim(),
-        category: _selectedCategory,
-        accountId: resolvedAccount?.id,
-      );
-
-      await txRepo.save(tx, _selectedCategory!);
+      if (_type == TransactionType.transfer) {
+        // Resolve "to" account
+        AccountEntity? resolvedTo = _toAccount;
+        if (resolvedTo == null && accounts.isNotEmpty) {
+          final toId = widget.existing?.toAccountId;
+          if (toId != null) {
+            try {
+              resolvedTo = accounts.firstWhere((a) => a.id == toId);
+            } catch (_) {}
+          }
+          resolvedTo ??= accounts.firstWhere(
+            (a) => a.id != resolvedAccount?.id,
+            orElse: () => accounts.last,
+          );
+        }
+        final title =
+            '${resolvedAccount?.name ?? 'Account'} → ${resolvedTo?.name ?? 'Account'}';
+        final tx = TransactionEntity(
+          id: widget.existing?.id ?? 0,
+          title: title,
+          amount: amount,
+          date: _selectedDate,
+          type: TransactionType.transfer,
+          note: '',
+          accountId: resolvedAccount?.id,
+          toAccountId: resolvedTo?.id,
+        );
+        await txRepo.save(tx);
+      } else {
+        final tx = TransactionEntity(
+          id: widget.existing?.id ?? 0,
+          title: _titleController.text.trim(),
+          amount: amount,
+          date: _selectedDate,
+          type: _type,
+          note: _noteController.text.trim(),
+          category: _selectedCategory,
+          accountId: resolvedAccount?.id,
+        );
+        await txRepo.save(tx, _selectedCategory!);
+      }
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -314,8 +381,11 @@ class _TypeToggle extends StatelessWidget {
       child: Row(
         children: TransactionType.values.map((type) {
           final isSelected = value == type;
-          final color =
-              type == TransactionType.burn ? AppTheme.burnColor : AppTheme.storeColor;
+          final color = switch (type) {
+            TransactionType.burn => AppTheme.burnColor,
+            TransactionType.store => AppTheme.storeColor,
+            TransactionType.transfer => AppTheme.primaryColor,
+          };
           return Expanded(
             child: GestureDetector(
               onTap: () => onChanged(type),
@@ -332,9 +402,13 @@ class _TypeToggle extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      type == TransactionType.burn
-                          ? Icons.local_fire_department_rounded
-                          : Icons.savings_rounded,
+                      switch (type) {
+                        TransactionType.burn =>
+                          Icons.local_fire_department_rounded,
+                        TransactionType.store => Icons.savings_rounded,
+                        TransactionType.transfer =>
+                          Icons.compare_arrows_rounded,
+                      },
                       size: 18,
                       color: isSelected ? color : Colors.white38,
                     ),

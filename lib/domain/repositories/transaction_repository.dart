@@ -7,7 +7,8 @@ abstract class TransactionRepository {
   Future<TransactionEntity?> getById(int id);
   Future<List<TransactionEntity>> getByType(TransactionType type);
   Future<List<TransactionEntity>> getByDateRange(DateTime from, DateTime to);
-  Future<int> save(TransactionEntity transaction, CategoryEntity category);
+  Future<int> save(TransactionEntity transaction,
+      [CategoryEntity? category]);
   Future<void> delete(int id);
   Stream<List<TransactionEntity>> watchAll();
   Future<List<TransactionEntity>> getRecent(int limit);

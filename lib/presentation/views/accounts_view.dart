@@ -6,7 +6,9 @@ import 'package:money_manager/core/constants/indian_banks.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/core/utils/currency_formatter.dart';
 import 'package:money_manager/domain/entities/account_entity.dart';
+import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
+import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
 
 // ─── Main View ────────────────────────────────────────────────────────────────
 
@@ -16,6 +18,7 @@ class AccountsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accountsAsync = ref.watch(accountListProvider);
+    final accounts = accountsAsync.valueOrNull ?? [];
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
@@ -23,7 +26,7 @@ class AccountsView extends ConsumerWidget {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            _buildAppBar(),
+            _buildAppBar(context, ref, accounts),
             accountsAsync.when(
               loading: () => const SliverFillRemaining(
                 child: Center(
@@ -55,7 +58,10 @@ class AccountsView extends ConsumerWidget {
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _AccountCard(
                               account: a,
-                              onEdit: () => _openSheet(context, ref, existing: a),
+                              onTap: () =>
+                                  _openAccountTransactions(context, a),
+                              onEdit: () =>
+                                  _openSheet(context, ref, existing: a),
                               onDelete: () => _confirmDelete(context, ref, a),
                               onSetPrimary: a.isPrimary
                                   ? null
@@ -82,13 +88,14 @@ class AccountsView extends ConsumerWidget {
     );
   }
 
-  SliverAppBar _buildAppBar() {
-    return const SliverAppBar(
+  SliverAppBar _buildAppBar(BuildContext context, WidgetRef ref,
+      List<AccountEntity> accounts) {
+    return SliverAppBar(
       floating: true,
       backgroundColor: AppTheme.bgColor,
       elevation: 0,
       titleSpacing: 16,
-      title: Text(
+      title: const Text(
         'Accounts',
         style: TextStyle(
           color: Colors.white,
@@ -96,6 +103,20 @@ class AccountsView extends ConsumerWidget {
           fontWeight: FontWeight.w800,
         ),
       ),
+      actions: [
+        if (accounts.length >= 2)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton.icon(
+              onPressed: () => _openTransferSheet(context, ref, accounts),
+              icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+              label: const Text('Transfer'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -106,6 +127,26 @@ class AccountsView extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _AccountSheet(existing: existing),
+    );
+  }
+
+  void _openTransferSheet(
+      BuildContext context, WidgetRef ref, List<AccountEntity> accounts) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _TransferSheet(accounts: accounts),
+    );
+  }
+
+  void _openAccountTransactions(
+      BuildContext context, AccountEntity account) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AccountTransactionsSheet(account: account),
     );
   }
 
@@ -261,12 +302,14 @@ class _AccountCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     this.onSetPrimary,
+    this.onTap,
   });
 
   final AccountEntity account;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback? onSetPrimary;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -279,6 +322,7 @@ class _AccountCard extends StatelessWidget {
         border: Border.all(color: Colors.white10),
       ),
       child: ListTile(
+        onTap: onTap,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Stack(
@@ -944,6 +988,611 @@ class _ColorPicker extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// ─── Transfer Sheet ───────────────────────────────────────────────────────────
+
+class _TransferSheet extends ConsumerStatefulWidget {
+  const _TransferSheet({required this.accounts});
+
+  final List<AccountEntity> accounts;
+
+  @override
+  ConsumerState<_TransferSheet> createState() => _TransferSheetState();
+}
+
+class _TransferSheetState extends ConsumerState<_TransferSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _amountController = TextEditingController();
+
+  late AccountEntity _fromAccount;
+  late AccountEntity _toAccount;
+  DateTime _date = DateTime.now();
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final primary = widget.accounts.firstWhere(
+      (a) => a.isPrimary,
+      orElse: () => widget.accounts.first,
+    );
+    _fromAccount = primary;
+    _toAccount = widget.accounts.firstWhere(
+      (a) => a.id != primary.id,
+      orElse: () => widget.accounts.last,
+    );
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.55,
+        maxChildSize: 0.85,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (_, controller) => Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ─── Header ─────────────────────────────────────────────
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.compare_arrows_rounded,
+                          color: AppTheme.primaryColor,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Transfer Money',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ─── From / To row ───────────────────────────────────────
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: _AccountDropdown(
+                          label: 'From',
+                          accounts: widget.accounts,
+                          selected: _fromAccount,
+                          onChanged: (a) {
+                            setState(() {
+                              if (a.id == _toAccount.id) {
+                                _toAccount = _fromAccount;
+                              }
+                              _fromAccount = a;
+                            });
+                          },
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            left: 8, right: 8, bottom: 4),
+                        child: GestureDetector(
+                          onTap: () => setState(() {
+                            final tmp = _fromAccount;
+                            _fromAccount = _toAccount;
+                            _toAccount = tmp;
+                          }),
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor
+                                  .withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppTheme.primaryColor
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.swap_horiz_rounded,
+                              color: AppTheme.primaryColor,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: _AccountDropdown(
+                          label: 'To',
+                          accounts: widget.accounts,
+                          selected: _toAccount,
+                          onChanged: (a) {
+                            setState(() {
+                              if (a.id == _fromAccount.id) {
+                                _fromAccount = _toAccount;
+                              }
+                              _toAccount = a;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ─── Amount ──────────────────────────────────────────────
+                  const Text(
+                    'AMOUNT',
+                    style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _amountController,
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d*\.?\d{0,2}')),
+                    ],
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      hintStyle: const TextStyle(color: Colors.white30),
+                      prefixIcon: const Icon(Icons.currency_rupee_rounded,
+                          color: Colors.white38, size: 20),
+                      filled: true,
+                      fillColor: AppTheme.cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide:
+                            const BorderSide(color: Colors.white12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide:
+                            const BorderSide(color: Colors.white12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                            color: AppTheme.primaryColor, width: 1.5),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Enter an amount';
+                      }
+                      final n = double.tryParse(v.trim());
+                      if (n == null || n <= 0) {
+                        return 'Enter a valid amount';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ─── Date ────────────────────────────────────────────────
+                  const Text(
+                    'DATE',
+                    style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _date,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                        builder: (ctx, child) => Theme(
+                          data: Theme.of(ctx).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: AppTheme.primaryColor,
+                              surface: AppTheme.surfaceColor,
+                            ),
+                          ),
+                          child: child!,
+                        ),
+                      );
+                      if (picked != null) setState(() => _date = picked);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        borderRadius: BorderRadius.circular(14),
+                        border:
+                            Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_today_rounded,
+                              color: Colors.white38, size: 18),
+                          const SizedBox(width: 12),
+                          Text(
+                            '${_date.day.toString().padLeft(2, '0')} '
+                            '${_monthName(_date.month)} '
+                            '${_date.year}',
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 15),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ─── Save Button ─────────────────────────────────────────
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _isSaving ? null : _save,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Confirm Transfer',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _monthName(int m) => const [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ][m - 1];
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_fromAccount.id == _toAccount.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('From and To accounts must be different.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final title = '${_fromAccount.name} → ${_toAccount.name}';
+      final tx = TransactionEntity(
+        id: 0,
+        title: title,
+        amount: double.parse(_amountController.text.trim()),
+        date: _date,
+        type: TransactionType.transfer,
+        note: '',
+        accountId: _fromAccount.id,
+        toAccountId: _toAccount.id,
+      );
+      await ref.read(transactionRepositoryProvider).save(tx);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: \$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+}
+
+// ─── Account Dropdown (for Transfer Sheet) ────────────────────────────────────
+
+class _AccountDropdown extends StatelessWidget {
+  const _AccountDropdown({
+    required this.label,
+    required this.accounts,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<AccountEntity> accounts;
+  final AccountEntity selected;
+  final ValueChanged<AccountEntity> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: selected.color.withValues(alpha: 0.4)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<AccountEntity>(
+              value: accounts.contains(selected) ? selected : accounts.first,
+              isExpanded: true,
+              dropdownColor: AppTheme.cardElevated,
+              borderRadius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              icon: const Icon(Icons.expand_more_rounded,
+                  color: Colors.white38, size: 18),
+              items: accounts.map((a) {
+                return DropdownMenuItem(
+                  value: a,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: a.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.account_balance_rounded,
+                          color: a.color,
+                          size: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          a.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (a) {
+                if (a != null) onChanged(a);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Account Transactions Sheet ───────────────────────────────────────────────
+
+class _AccountTransactionsSheet extends ConsumerWidget {
+  const _AccountTransactionsSheet({required this.account});
+
+  final AccountEntity account;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final txAsync = ref.watch(transactionListProvider);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: account.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.account_balance_rounded,
+                      color: account.color,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          account.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (account.bank != null)
+                          Text(
+                            account.bank!.name,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    CurrencyFormatter.format(account.balance),
+                    style: TextStyle(
+                      color: account.color,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(color: Colors.white12, height: 1),
+
+            // Transaction list
+            Expanded(
+              child: txAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(
+                      color: AppTheme.primaryColor),
+                ),
+                error: (e, _) => Center(
+                  child: Text(
+                    e.toString(),
+                    style: const TextStyle(color: AppTheme.burnColor),
+                  ),
+                ),
+                data: (all) {
+                  final filtered = all
+                      .where((t) =>
+                          t.accountId == account.id ||
+                          t.toAccountId == account.id)
+                      .toList();
+
+                  if (filtered.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.receipt_long_rounded,
+                              color: Colors.white24, size: 48),
+                          SizedBox(height: 12),
+                          Text(
+                            'No transactions yet',
+                            style: TextStyle(color: Colors.white38),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    controller: controller,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(color: Colors.white10, height: 1),
+                    itemBuilder: (_, i) =>
+                        TransactionListTile(transaction: filtered[i]),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

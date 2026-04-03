@@ -10,6 +10,7 @@ class TransactionEntity {
   final String note;
   final CategoryEntity? category;
   final int? accountId;
+  final int? toAccountId;
 
   const TransactionEntity({
     required this.id,
@@ -20,10 +21,12 @@ class TransactionEntity {
     required this.note,
     this.category,
     this.accountId,
+    this.toAccountId,
   });
 
   bool get isBurn => type == TransactionType.burn;
   bool get isStore => type == TransactionType.store;
+  bool get isTransfer => type == TransactionType.transfer;
 
   TransactionEntity copyWith({
     int? id,
@@ -33,6 +36,8 @@ class TransactionEntity {
     TransactionType? type,
     String? note,
     CategoryEntity? category,
+    Object? accountId = _sentinel,
+    Object? toAccountId = _sentinel,
   }) {
     return TransactionEntity(
       id: id ?? this.id,
@@ -42,6 +47,10 @@ class TransactionEntity {
       type: type ?? this.type,
       note: note ?? this.note,
       category: category ?? this.category,
+      accountId:
+          accountId == _sentinel ? this.accountId : accountId as int?,
+      toAccountId:
+          toAccountId == _sentinel ? this.toAccountId : toAccountId as int?,
     );
   }
 
@@ -55,3 +64,5 @@ class TransactionEntity {
   @override
   int get hashCode => id.hashCode;
 }
+
+const _sentinel = Object();
