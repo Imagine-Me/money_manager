@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/core/utils/currency_formatter.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
-import 'package:money_manager/presentation/views/add_transaction_view.dart';
 import 'package:money_manager/presentation/views/analytics_view.dart';
-import 'package:money_manager/presentation/views/report_view.dart';
 import 'package:money_manager/presentation/views/transactions_view.dart';
 import 'package:money_manager/presentation/widgets/bento_card.dart';
 import 'package:money_manager/presentation/widgets/spending_pie_chart.dart';
@@ -27,7 +25,7 @@ class DashboardView extends ConsumerWidget {
           slivers: [
             _buildAppBar(context),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 4),
@@ -136,7 +134,7 @@ class DashboardView extends ConsumerWidget {
                     loading: () => _SkeletonBox(height: 220),
                     error: (_, _) => const SizedBox.shrink(),
                     data: (analytics) =>
-                        analytics.monthlyBurnCategoryBreakdown.isNotEmpty
+                        analytics.monthlyBurnParentBreakdown.isNotEmpty
                             ? BentoCard(
                                 padding: const EdgeInsets.all(20),
                                 child: Column(
@@ -148,7 +146,7 @@ class DashboardView extends ConsumerWidget {
                                         onTap: () => _goToAnalytics(context)),
                                     const SizedBox(height: 16),
                                     SpendingPieChart(
-                                      data: analytics.monthlyBurnCategoryBreakdown,
+                                      data: analytics.monthlyBurnParentBreakdown,
                                     ),
                                   ],
                                 ),
@@ -211,15 +209,6 @@ class DashboardView extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: SizedBox(
-        width: 64,
-        height: 64,
-        child: FloatingActionButton(
-          heroTag: 'dashboard_fab',
-          onPressed: () => _openAddTransaction(context),
-          child: const Icon(Icons.add_rounded, size: 30),
-        ),
-      ),
     );
   }
 
@@ -255,16 +244,6 @@ class DashboardView extends ConsumerWidget {
             Row(
               children: [
                 _IconBtn(
-                  icon: Icons.assessment_rounded,
-                  onTap: () => _goToReport(context),
-                ),
-                const SizedBox(width: 8),
-                _IconBtn(
-                  icon: Icons.bar_chart_rounded,
-                  onTap: () => _goToAnalytics(context),
-                ),
-                const SizedBox(width: 8),
-                _IconBtn(
                   icon: Icons.list_alt_rounded,
                   onTap: () => _goToTransactions(context),
                 ),
@@ -273,12 +252,6 @@ class DashboardView extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-
-  void _openAddTransaction(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddTransactionView()),
     );
   }
 
@@ -291,12 +264,6 @@ class DashboardView extends ConsumerWidget {
   void _goToAnalytics(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const AnalyticsView()),
-    );
-  }
-
-  void _goToReport(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ReportView()),
     );
   }
 }

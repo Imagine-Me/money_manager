@@ -70,6 +70,7 @@ class CategoryRepositoryImpl implements CategoryRepository {
         iconCodePoint: m.iconCodePoint,
         iconFontFamily: m.iconFontFamily,
         type: TransactionType.fromString(m.type),
+        parentId: m.parentId,
       );
 
   CategoryModel _toModel(CategoryEntity e) {
@@ -78,8 +79,21 @@ class CategoryRepositoryImpl implements CategoryRepository {
       ..colorValue = e.colorValue
       ..iconCodePoint = e.iconCodePoint
       ..iconFontFamily = e.iconFontFamily
-      ..type = e.type.name;
+      ..type = e.type.name
+      ..parentId = e.parentId;
     if (e.id > 0) m.id = e.id;
     return m;
+  }
+
+  @override
+  Future<List<CategoryEntity>> getTopLevel() async {
+    final all = await _db.categoryModels.where().findAll();
+    return all.where((m) => m.parentId == null).map(_toEntity).toList();
+  }
+
+  @override
+  Future<List<CategoryEntity>> getSubcategories(int parentId) async {
+    final all = await _db.categoryModels.where().findAll();
+    return all.where((m) => m.parentId == parentId).map(_toEntity).toList();
   }
 }

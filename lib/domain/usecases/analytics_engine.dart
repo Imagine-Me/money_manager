@@ -43,6 +43,28 @@ class AnalyticsEngine {
     );
   }
 
+  /// Parent-level rollup: subcategories are grouped under their parent.
+  /// Categories with no parent are grouped by themselves.
+  Map<CategoryEntity, double> getParentCategoryBreakdown(
+    List<TransactionEntity> transactions, {
+    required List<CategoryEntity> allCategories,
+    TransactionType type = TransactionType.burn,
+  }) {
+    final parentMap = {for (final c in allCategories) c.id: c};
+    final Map<CategoryEntity, double> breakdown = {};
+    for (final t in transactions) {
+      if (t.type != type || t.category == null) continue;
+      final cat = t.category!;
+      final effectiveCat = cat.parentId != null && parentMap.containsKey(cat.parentId!)
+          ? parentMap[cat.parentId!]!
+          : cat;
+      breakdown[effectiveCat] = (breakdown[effectiveCat] ?? 0) + t.amount;
+    }
+    return Map.fromEntries(
+      breakdown.entries.toList()..sort((a, b) => b.value.compareTo(a.value)),
+    );
+  }
+
   /// Weekly spending for the past 7 days — burn only.
   List<double> getWeeklySpend(List<TransactionEntity> transactions) {
     final now = DateTime.now();

@@ -13,4 +13,5 @@ class CategoryModel {
   late int iconCodePoint;
   late String iconFontFamily;
   late String type; // 'burn' or 'store'
+  int? parentId;    // null = top-level category; non-null = subcategory
 }

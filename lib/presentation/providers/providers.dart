@@ -39,36 +39,52 @@ final transactionListProvider = StreamProvider<List<TransactionEntity>>((ref) {
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
-final analyticsProvider = Provider<AsyncValue<_Analytics>>((ref) {
+final analyticsProvider = Provider<AsyncValue<AppAnalytics>>((ref) {
   final txAsync = ref.watch(transactionListProvider);
+  final catAsync = ref.watch(categoryListProvider);
   final engine = ref.watch(analyticsEngineProvider);
 
-  return txAsync.whenData((transactions) {
-    final monthly = engine.getMonthlyTransactions(transactions);
-    return _Analytics(
-      totalBurn: engine.getTotalBurn(transactions),
-      totalStore: engine.getTotalStore(transactions),
-      delta: engine.calculateDelta(transactions),
-      weeklySpend: engine.getWeeklySpend(transactions),
-      burnCategoryBreakdown: engine.getCategoryBreakdown(
-        transactions,
-        type: TransactionType.burn,
-      ),
-      storeCategoryBreakdown: engine.getCategoryBreakdown(
-        transactions,
-        type: TransactionType.store,
-      ),
-      monthlyBurn: engine.getMonthlyBurn(transactions),
-      monthlyStore: engine.getMonthlyStore(transactions),
-      prevMonthlyBurn: engine.getPrevMonthlyBurn(transactions),
-      prevMonthlyStore: engine.getPrevMonthlyStore(transactions),
-      monthlyBurnCategoryBreakdown: engine.getCategoryBreakdown(
-        monthly,
-        type: TransactionType.burn,
-      ),
-      monthlyTransactions: monthly,
-    );
-  });
+  return switch ((txAsync, catAsync)) {
+    (AsyncLoading(), _) || (_, AsyncLoading()) => const AsyncValue.loading(),
+    (AsyncError(:final error, :final stackTrace), _) =>
+      AsyncValue.error(error, stackTrace),
+    (_, AsyncError(:final error, :final stackTrace)) =>
+      AsyncValue.error(error, stackTrace),
+    (AsyncData(value: final transactions), AsyncData(value: final categories)) =>
+      AsyncValue.data(() {
+        final monthly = engine.getMonthlyTransactions(transactions);
+        return _Analytics(
+          totalBurn: engine.getTotalBurn(transactions),
+          totalStore: engine.getTotalStore(transactions),
+          delta: engine.calculateDelta(transactions),
+          weeklySpend: engine.getWeeklySpend(transactions),
+          burnCategoryBreakdown: engine.getCategoryBreakdown(
+            transactions, type: TransactionType.burn,
+          ),
+          storeCategoryBreakdown: engine.getCategoryBreakdown(
+            transactions, type: TransactionType.store,
+          ),
+          burnParentBreakdown: engine.getParentCategoryBreakdown(
+            transactions, allCategories: categories, type: TransactionType.burn,
+          ),
+          storeParentBreakdown: engine.getParentCategoryBreakdown(
+            transactions, allCategories: categories, type: TransactionType.store,
+          ),
+          monthlyBurn: engine.getMonthlyBurn(transactions),
+          monthlyStore: engine.getMonthlyStore(transactions),
+          prevMonthlyBurn: engine.getPrevMonthlyBurn(transactions),
+          prevMonthlyStore: engine.getPrevMonthlyStore(transactions),
+          monthlyBurnCategoryBreakdown: engine.getCategoryBreakdown(
+            monthly, type: TransactionType.burn,
+          ),
+          monthlyBurnParentBreakdown: engine.getParentCategoryBreakdown(
+            monthly, allCategories: categories, type: TransactionType.burn,
+          ),
+          monthlyTransactions: monthly,
+        );
+      }()),
+    _ => const AsyncValue.loading(),
+  };
 });
 
 class _Analytics {
@@ -78,11 +94,14 @@ class _Analytics {
   final List<double> weeklySpend;
   final Map<CategoryEntity, double> burnCategoryBreakdown;
   final Map<CategoryEntity, double> storeCategoryBreakdown;
+  final Map<CategoryEntity, double> burnParentBreakdown;
+  final Map<CategoryEntity, double> storeParentBreakdown;
   final double monthlyBurn;
   final double monthlyStore;
   final double prevMonthlyBurn;
   final double prevMonthlyStore;
   final Map<CategoryEntity, double> monthlyBurnCategoryBreakdown;
+  final Map<CategoryEntity, double> monthlyBurnParentBreakdown;
   final List<TransactionEntity> monthlyTransactions;
 
   const _Analytics({
@@ -92,11 +111,14 @@ class _Analytics {
     required this.weeklySpend,
     required this.burnCategoryBreakdown,
     required this.storeCategoryBreakdown,
+    required this.burnParentBreakdown,
+    required this.storeParentBreakdown,
     required this.monthlyBurn,
     required this.monthlyStore,
     required this.prevMonthlyBurn,
     required this.prevMonthlyStore,
     required this.monthlyBurnCategoryBreakdown,
+    required this.monthlyBurnParentBreakdown,
     required this.monthlyTransactions,
   });
 

@@ -27,10 +27,12 @@ class ReportView extends ConsumerStatefulWidget {
 
 class _ReportViewState extends ConsumerState<ReportView> {
   _Period _period = _Period.month;
+  bool _showSubcategories = false;
 
   @override
   Widget build(BuildContext context) {
     final txAsync = ref.watch(transactionListProvider);
+    final catAsync = ref.watch(categoryListProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
@@ -46,7 +48,14 @@ class _ReportViewState extends ConsumerState<ReportView> {
               style: const TextStyle(color: AppTheme.burnColor)),
         ),
         data: (allTx) {
-          final data = _PeriodData.compute(allTx, _period);
+          final allCategories = catAsync.valueOrNull ?? [];
+          final data = _PeriodData.compute(allTx, allCategories, _period);
+          final burnBreakdown = _showSubcategories
+              ? data.burnBreakdown
+              : data.burnParentBreakdown;
+          final storeBreakdown = _showSubcategories
+              ? data.storeBreakdown
+              : data.storeParentBreakdown;
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -81,6 +90,14 @@ class _ReportViewState extends ConsumerState<ReportView> {
                     _SummaryCard(data: data),
                     const SizedBox(height: 12),
 
+                    // ─── Category toggle ─────────────────────────────────
+                    _DrillToggle(
+                      showSubcategories: _showSubcategories,
+                      onChanged: (v) =>
+                          setState(() => _showSubcategories = v),
+                    ),
+                    const SizedBox(height: 12),
+
                     // ─── Bar chart ───────────────────────────────────────
                     if (data.barValues.any((v) => v > 0)) ...[
                       BentoCard(
@@ -104,14 +121,14 @@ class _ReportViewState extends ConsumerState<ReportView> {
                     ],
 
                     // ─── Where money went ────────────────────────────────
-                    if (data.burnBreakdown.isNotEmpty) ...[
+                    if (burnBreakdown.isNotEmpty) ...[
                       BentoCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _cardLabel('WHERE MONEY WENT'),
                             const SizedBox(height: 20),
-                            SpendingPieChart(data: data.burnBreakdown),
+                            SpendingPieChart(data: burnBreakdown),
                           ],
                         ),
                       ),
@@ -124,7 +141,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
                           children: [
                             _cardLabel('CATEGORY BREAKDOWN'),
                             const SizedBox(height: 16),
-                            ...data.burnBreakdown.entries.map(
+                            ...burnBreakdown.entries.map(
                               (e) => _CategoryBar(
                                 category: e.key,
                                 amount: e.value,
@@ -138,14 +155,14 @@ class _ReportViewState extends ConsumerState<ReportView> {
                     ],
 
                     // ─── Store breakdown ─────────────────────────────────
-                    if (data.storeBreakdown.isNotEmpty) ...[
+                    if (storeBreakdown.isNotEmpty) ...[
                       BentoCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _cardLabel('STORE BREAKDOWN'),
                             const SizedBox(height: 16),
-                            ...data.storeBreakdown.entries.map(
+                            ...storeBreakdown.entries.map(
                               (e) => _CategoryBar(
                                 category: e.key,
                                 amount: e.value,
@@ -698,6 +715,82 @@ Widget _cardLabel(String text) => Text(
       ),
     );
 
+// ─── Drill Toggle ─────────────────────────────────────────────────────────────
+
+class _DrillToggle extends StatelessWidget {
+  const _DrillToggle(
+      {required this.showSubcategories, required this.onChanged});
+
+  final bool showSubcategories;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Text(
+          'VIEW BY',
+          style: TextStyle(
+            color: Colors.white38,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(10),
+            border:
+                Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _chip('Category', !showSubcategories, () => onChanged(false)),
+              const SizedBox(width: 4),
+              _chip(
+                  'Subcategory', showSubcategories, () => onChanged(true)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : [],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white38,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+}
+
 // ─── Period data computation ──────────────────────────────────────────────────
 
 class _PeriodData {
@@ -707,6 +800,8 @@ class _PeriodData {
   final int storeCount;
   final Map<CategoryEntity, double> burnBreakdown;
   final Map<CategoryEntity, double> storeBreakdown;
+  final Map<CategoryEntity, double> burnParentBreakdown;
+  final Map<CategoryEntity, double> storeParentBreakdown;
   final List<TransactionEntity> transactions;
   final List<String> barLabels;
   final List<double> barValues;
@@ -719,6 +814,8 @@ class _PeriodData {
     required this.storeCount,
     required this.burnBreakdown,
     required this.storeBreakdown,
+    required this.burnParentBreakdown,
+    required this.storeParentBreakdown,
     required this.transactions,
     required this.barLabels,
     required this.barValues,
@@ -726,7 +823,7 @@ class _PeriodData {
   });
 
   factory _PeriodData.compute(
-      List<TransactionEntity> all, _Period period) {
+      List<TransactionEntity> all, List<CategoryEntity> allCategories, _Period period) {
     final now = DateTime.now();
     List<TransactionEntity> filtered;
     List<String> labels;
@@ -833,6 +930,8 @@ class _PeriodData {
           filtered.where((t) => t.type == TransactionType.store).length,
       burnBreakdown: burnBreakdown,
       storeBreakdown: storeBreakdown,
+      burnParentBreakdown: _parentBreakdown(burnBreakdown, allCategories),
+      storeParentBreakdown: _parentBreakdown(storeBreakdown, allCategories),
       transactions: filtered,
       barLabels: labels,
       barValues: values,
@@ -846,6 +945,24 @@ class _PeriodData {
     for (final t in txns) {
       if (t.type != type || t.category == null) continue;
       map[t.category!] = (map[t.category!] ?? 0) + t.amount;
+    }
+    return Map.fromEntries(
+        map.entries.toList()..sort((a, b) => b.value.compareTo(a.value)));
+  }
+
+  static Map<CategoryEntity, double> _parentBreakdown(
+      Map<CategoryEntity, double> breakdown,
+      List<CategoryEntity> allCategories) {
+    final map = <CategoryEntity, double>{};
+    for (final entry in breakdown.entries) {
+      final cat = entry.key;
+      if (cat.parentId == null) {
+        map[cat] = (map[cat] ?? 0) + entry.value;
+      } else {
+        final idx = allCategories.indexWhere((c) => c.id == cat.parentId);
+        final parent = idx >= 0 ? allCategories[idx] : cat;
+        map[parent] = (map[parent] ?? 0) + entry.value;
+      }
     }
     return Map.fromEntries(
         map.entries.toList()..sort((a, b) => b.value.compareTo(a.value)));

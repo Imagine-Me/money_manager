@@ -8,6 +8,7 @@ class CategoryEntity {
   final int iconCodePoint;
   final String iconFontFamily;
   final TransactionType type;
+  final int? parentId; // null = top-level; non-null = subcategory
 
   const CategoryEntity({
     required this.id,
@@ -16,7 +17,10 @@ class CategoryEntity {
     required this.iconCodePoint,
     required this.iconFontFamily,
     required this.type,
+    this.parentId,
   });
+
+  bool get isSubcategory => parentId != null;
 
   Color get color => Color(colorValue);
 
@@ -29,6 +33,7 @@ class CategoryEntity {
     int? iconCodePoint,
     String? iconFontFamily,
     TransactionType? type,
+    int? parentId,
   }) {
     return CategoryEntity(
       id: id ?? this.id,
@@ -37,6 +42,7 @@ class CategoryEntity {
       iconCodePoint: iconCodePoint ?? this.iconCodePoint,
       iconFontFamily: iconFontFamily ?? this.iconFontFamily,
       type: type ?? this.type,
+      parentId: parentId ?? this.parentId,
     );
   }
 

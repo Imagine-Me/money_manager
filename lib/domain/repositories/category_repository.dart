@@ -9,4 +9,8 @@ abstract class CategoryRepository {
   Future<void> delete(int id);
   Stream<List<CategoryEntity>> watchAll();
   Future<List<CategoryEntity>> getByType(TransactionType type);
+  /// Returns only top-level categories (parentId == null).
+  Future<List<CategoryEntity>> getTopLevel();
+  /// Returns subcategories whose parentId == [parentId].
+  Future<List<CategoryEntity>> getSubcategories(int parentId);
 }

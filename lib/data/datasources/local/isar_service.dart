@@ -1,5 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:money_manager/core/utils/category_seeder.dart';
 import 'package:money_manager/data/models/category_model.dart';
 import 'package:money_manager/data/models/transaction_model.dart';
 
@@ -24,6 +25,7 @@ class IsarService {
       directory: dir.path,
       name: 'vaultcash',
     );
+    await CategorySeeder.seed(_isar!);
     return _isar!;
   }
 

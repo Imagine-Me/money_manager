@@ -455,8 +455,13 @@ class _CategorySheet extends ConsumerStatefulWidget {
 }
 
 class _CategorySheetState extends ConsumerState<_CategorySheet> {
+  // Navigation state
+  CategoryEntity? _selectedParent;
+
+  // New/edit form state
   bool _showNewForm = false;
   CategoryEntity? _editingCategory;
+  int? _newCategoryParentId;
   final _nameController = TextEditingController();
   int _selectedColorIndex = 0;
   int _selectedIconIndex = 0;
@@ -474,12 +479,14 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
     super.dispose();
   }
 
+  // ── Build ────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final categories = ref.watch(categoryListProvider);
+    final categoriesAsync = ref.watch(categoryListProvider);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.7,
+      initialChildSize: 0.75,
       maxChildSize: 0.95,
       minChildSize: 0.4,
       builder: (_, controller) => Container(
@@ -501,34 +508,41 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
                 ),
               ),
             ),
+
+            // Header row
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(4, 0, 16, 12),
               child: Row(
                 children: [
-                  const Text(
-                    'Category',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                  if (_selectedParent != null && !_showNewForm)
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_rounded,
+                          color: Colors.white70),
+                      onPressed: () =>
+                          setState(() => _selectedParent = null),
+                    )
+                  else
+                    const SizedBox(width: 20),
+                  Expanded(
+                    child: Text(
+                      _showNewForm
+                          ? (_editingCategory != null
+                              ? 'Edit Category'
+                              : 'New Category')
+                          : (_selectedParent != null
+                              ? _selectedParent!.name
+                              : 'Category'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  const Spacer(),
                   TextButton.icon(
-                    onPressed: () => setState(() {
-                      _showNewForm = !_showNewForm;
-                      if (!_showNewForm) {
-                        _editingCategory = null;
-                        _nameController.clear();
-                        _selectedColorIndex = 0;
-                        _selectedIconIndex = 0;
-                        _selectedType = widget.currentType;
-                      }
-                    }),
-                    icon: Icon(
-                      _showNewForm ? Icons.close : Icons.add,
-                      size: 16,
-                    ),
+                    onPressed: _toggleNewForm,
+                    icon: Icon(_showNewForm ? Icons.close : Icons.add,
+                        size: 16),
                     label: Text(_showNewForm ? 'Cancel' : 'New'),
                     style: TextButton.styleFrom(
                         foregroundColor: AppTheme.primaryColor),
@@ -536,91 +550,100 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
                 ],
               ),
             ),
-            if (_showNewForm) _NewCategoryForm(
-              nameController: _nameController,
-              selectedColorIndex: _selectedColorIndex,
-              selectedIconIndex: _selectedIconIndex,
-              selectedType: _selectedType,
-              isEditing: _editingCategory != null,
-              onColorChanged: (i) =>
-                  setState(() => _selectedColorIndex = i),
-              onIconChanged: (i) =>
-                  setState(() => _selectedIconIndex = i),
-              onTypeChanged: (t) =>
-                  setState(() => _selectedType = t),
-              onSave: _saveCategory,
-            ),
-            Expanded(
-              child: categories.when(
-                loading: () => const Center(
-                    child: CircularProgressIndicator(
-                        color: AppTheme.primaryColor)),
-                error: (e, _) => Center(
-                    child: Text(e.toString(),
-                        style: const TextStyle(color: AppTheme.burnColor))),
-                data: (cats) {
-                  if (cats.isEmpty && !_showNewForm) {
-                    return const Center(
-                      child: Text(
-                        'No categories yet.\nTap "New" to create one.',
-                        style: TextStyle(color: Colors.white38),
-                        textAlign: TextAlign.center,
-                      ),
-                    );
-                  }
-                  return ListView.builder(
-                    controller: controller,
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                    itemCount: cats.length,
-                    itemBuilder: (_, i) {
-                      final cat = cats[i];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: cat.color.withValues(alpha: 0.2),
-                          child: Icon(cat.icon, color: cat.color, size: 20),
-                        ),
-                        title: Text(cat.name,
-                            style: const TextStyle(color: Colors.white)),
-                        subtitle: Text(cat.type.label,
-                            style: const TextStyle(
-                                color: Colors.white38, fontSize: 12)),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_rounded,
-                                  size: 18, color: Colors.white38),
-                              onPressed: () => _startEdit(cat),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              tooltip: 'Edit',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded,
-                                  size: 18, color: AppTheme.burnColor),
-                              onPressed: () => _confirmDelete(cat),
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              tooltip: 'Delete',
-                            ),
-                          ],
-                        ),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        onTap: () {
-                          widget.onSelect(cat);
-                          Navigator.of(context).pop();
-                        },
-                      );
-                    },
-                  );
-                },
+
+            // New / edit form
+            if (_showNewForm)
+              categoriesAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (cats) => _NewCategoryForm(
+                  nameController: _nameController,
+                  selectedColorIndex: _selectedColorIndex,
+                  selectedIconIndex: _selectedIconIndex,
+                  selectedType: _selectedType,
+                  isEditing: _editingCategory != null,
+                  onColorChanged: (i) =>
+                      setState(() => _selectedColorIndex = i),
+                  onIconChanged: (i) =>
+                      setState(() => _selectedIconIndex = i),
+                  onTypeChanged: (t) => setState(() => _selectedType = t),
+                  onSave: _saveCategory,
+                  parentOptions: cats
+                      .where((c) => c.parentId == null)
+                      .toList(),
+                  selectedParentId: _newCategoryParentId,
+                  onParentChanged: (id) =>
+                      setState(() => _newCategoryParentId = id),
+                ),
               ),
-            ),
+
+            // Category list / grid
+            if (!_showNewForm)
+              Expanded(
+                child: categoriesAsync.when(
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(
+                        color: AppTheme.primaryColor),
+                  ),
+                  error: (e, _) => Center(
+                    child: Text(e.toString(),
+                        style:
+                            const TextStyle(color: AppTheme.burnColor)),
+                  ),
+                  data: (cats) => _selectedParent == null
+                      ? _ParentGrid(
+                          cats: cats,
+                          currentType: widget.currentType,
+                          controller: controller,
+                          onParentTapped: (parent) {
+                            final hasSubs =
+                                cats.any((c) => c.parentId == parent.id);
+                            if (hasSubs) {
+                              setState(() => _selectedParent = parent);
+                            } else {
+                              widget.onSelect(parent);
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          onEdit: (cat) => _startEdit(cat, cats),
+                          onDelete: _confirmDelete,
+                        )
+                      : _SubcategoryList(
+                          parent: _selectedParent!,
+                          subs: cats
+                              .where((c) =>
+                                  c.parentId == _selectedParent!.id)
+                              .toList(),
+                          controller: controller,
+                          onSelect: (sub) {
+                            widget.onSelect(sub);
+                            Navigator.of(context).pop();
+                          },
+                          onEdit: (cat) => _startEdit(cat, cats),
+                          onDelete: _confirmDelete,
+                        ),
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  // ── Actions ──────────────────────────────────────────────────────────────
+
+  void _toggleNewForm() {
+    setState(() {
+      _showNewForm = !_showNewForm;
+      if (!_showNewForm) {
+        _editingCategory = null;
+        _newCategoryParentId = null;
+        _nameController.clear();
+        _selectedColorIndex = 0;
+        _selectedIconIndex = 0;
+        _selectedType = widget.currentType;
+      }
+    });
   }
 
   Future<void> _saveCategory() async {
@@ -638,6 +661,7 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
       iconCodePoint: icon.codePoint,
       iconFontFamily: icon.fontFamily ?? 'MaterialIcons',
       type: _selectedType,
+      parentId: isEdit ? _editingCategory!.parentId : _newCategoryParentId,
     );
 
     final savedId = await ref.read(categoryRepositoryProvider).save(entity);
@@ -647,6 +671,7 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
         setState(() {
           _showNewForm = false;
           _editingCategory = null;
+          _newCategoryParentId = null;
           _nameController.clear();
           _selectedColorIndex = 0;
           _selectedIconIndex = 0;
@@ -663,7 +688,7 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
     }
   }
 
-  void _startEdit(CategoryEntity cat) {
+  void _startEdit(CategoryEntity cat, List<CategoryEntity> allCats) {
     final colorIdx = AppConstants.categoryColors
         .indexWhere((c) => c.toARGB32() == cat.colorValue);
     final iconIdx = AppConstants.categoryIconOptions
@@ -671,6 +696,7 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
     _nameController.text = cat.name;
     setState(() {
       _editingCategory = cat;
+      _newCategoryParentId = cat.parentId;
       _selectedColorIndex = colorIdx < 0 ? 0 : colorIdx;
       _selectedIconIndex = iconIdx < 0 ? 0 : iconIdx;
       _selectedType = cat.type;
@@ -696,8 +722,8 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-                foregroundColor: AppTheme.burnColor),
+            style:
+                TextButton.styleFrom(foregroundColor: AppTheme.burnColor),
             child: const Text('Delete'),
           ),
         ],
@@ -706,6 +732,212 @@ class _CategorySheetState extends ConsumerState<_CategorySheet> {
     if (confirmed == true) {
       await ref.read(categoryRepositoryProvider).delete(cat.id);
     }
+  }
+}
+
+// ─── Parent Category Grid ──────────────────────────────────────────────────────
+
+class _ParentGrid extends StatelessWidget {
+  const _ParentGrid({
+    required this.cats,
+    required this.currentType,
+    required this.controller,
+    required this.onParentTapped,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final List<CategoryEntity> cats;
+  final TransactionType currentType;
+  final ScrollController controller;
+  final ValueChanged<CategoryEntity> onParentTapped;
+  final ValueChanged<CategoryEntity> onEdit;
+  final ValueChanged<CategoryEntity> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final parents = cats
+        .where((c) => c.parentId == null && c.type == currentType)
+        .toList();
+
+    if (parents.isEmpty) {
+      return const Center(
+        child: Text(
+          'No categories yet.\nTap "New" to create one.',
+          style: TextStyle(color: Colors.white38),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return GridView.builder(
+      controller: controller,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        childAspectRatio: 0.9,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: parents.length,
+      itemBuilder: (_, i) {
+        final parent = parents[i];
+        final hasSubs = cats.any((c) => c.parentId == parent.id);
+        return GestureDetector(
+          onLongPress: () => _showActions(context, parent),
+          onTap: () => onParentTapped(parent),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: parent.color.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child:
+                      Icon(parent.icon, color: parent.color, size: 22),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    parent.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (hasSubs)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Icon(Icons.chevron_right_rounded,
+                        color: Colors.white24, size: 14),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showActions(BuildContext context, CategoryEntity cat) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_rounded, color: Colors.white70),
+              title: const Text('Edit',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                onEdit(cat);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded,
+                  color: AppTheme.burnColor),
+              title: const Text('Delete',
+                  style: TextStyle(color: AppTheme.burnColor)),
+              onTap: () {
+                Navigator.pop(context);
+                onDelete(cat);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Subcategory List ──────────────────────────────────────────────────────────
+
+class _SubcategoryList extends StatelessWidget {
+  const _SubcategoryList({
+    required this.parent,
+    required this.subs,
+    required this.controller,
+    required this.onSelect,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final CategoryEntity parent;
+  final List<CategoryEntity> subs;
+  final ScrollController controller;
+  final ValueChanged<CategoryEntity> onSelect;
+  final ValueChanged<CategoryEntity> onEdit;
+  final ValueChanged<CategoryEntity> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    if (subs.isEmpty) {
+      return const Center(
+        child: Text('No subcategories.',
+            style: TextStyle(color: Colors.white38)),
+      );
+    }
+    return ListView.builder(
+      controller: controller,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      itemCount: subs.length,
+      itemBuilder: (_, i) {
+        final sub = subs[i];
+        return ListTile(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          leading: CircleAvatar(
+            backgroundColor: sub.color.withValues(alpha: 0.2),
+            child: Icon(sub.icon, color: sub.color, size: 20),
+          ),
+          title:
+              Text(sub.name, style: const TextStyle(color: Colors.white)),
+          subtitle: Text(parent.name,
+              style:
+                  const TextStyle(color: Colors.white38, fontSize: 11)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_rounded,
+                    size: 18, color: Colors.white38),
+                onPressed: () => onEdit(sub),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded,
+                    size: 18, color: AppTheme.burnColor),
+                onPressed: () => onDelete(sub),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          onTap: () => onSelect(sub),
+        );
+      },
+    );
   }
 }
 
@@ -722,6 +954,9 @@ class _NewCategoryForm extends StatelessWidget {
     required this.isEditing,
     required this.selectedType,
     required this.onTypeChanged,
+    required this.parentOptions,
+    required this.selectedParentId,
+    required this.onParentChanged,
   });
 
   final TextEditingController nameController;
@@ -733,16 +968,23 @@ class _NewCategoryForm extends StatelessWidget {
   final bool isEditing;
   final TransactionType selectedType;
   final ValueChanged<TransactionType> onTypeChanged;
+  final List<CategoryEntity> parentOptions;
+  final int? selectedParentId;
+  final ValueChanged<int?> onParentChanged;
 
   @override
   Widget build(BuildContext context) {
+    final filteredParents =
+        parentOptions.where((c) => c.type == selectedType).toList();
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+        border:
+            Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -813,6 +1055,46 @@ class _NewCategoryForm extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
+          // Parent selector (only for new categories)
+          if (!isEditing && filteredParents.isNotEmpty) ...[
+            const Text('Parent (optional)',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 8),
+            DropdownButton<int?>(
+              value: filteredParents.any((c) => c.id == selectedParentId)
+                  ? selectedParentId
+                  : null,
+              isExpanded: true,
+              dropdownColor: AppTheme.surfaceColor,
+              hint: const Text('None (top-level)',
+                  style: TextStyle(color: Colors.white38, fontSize: 13)),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              underline: Container(
+                  height: 1, color: Colors.white12),
+              onChanged: onParentChanged,
+              items: [
+                const DropdownMenuItem<int?>(
+                  value: null,
+                  child: Text('None (top-level)',
+                      style: TextStyle(color: Colors.white54)),
+                ),
+                ...filteredParents.map(
+                  (c) => DropdownMenuItem<int?>(
+                    value: c.id,
+                    child: Row(
+                      children: [
+                        Icon(c.icon, color: c.color, size: 16),
+                        const SizedBox(width: 8),
+                        Text(c.name),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
+
           // Color row
           const Text('Color',
               style: TextStyle(color: Colors.white54, fontSize: 12)),
@@ -838,7 +1120,8 @@ class _NewCategoryForm extends StatelessWidget {
                           : null,
                     ),
                     child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 16)
+                        ? const Icon(Icons.check,
+                            color: Colors.white, size: 16)
                         : null,
                   ),
                 );
@@ -847,7 +1130,7 @@ class _NewCategoryForm extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Icon grid
+          // Icon row
           const Text('Icon',
               style: TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(height: 8),
@@ -858,7 +1141,8 @@ class _NewCategoryForm extends StatelessWidget {
               itemCount: AppConstants.categoryIconOptions.length,
               itemBuilder: (_, i) {
                 final selected = i == selectedIconIndex;
-                final color = AppConstants.categoryColors[selectedColorIndex];
+                final color =
+                    AppConstants.categoryColors[selectedColorIndex];
                 return GestureDetector(
                   onTap: () => onIconChanged(i),
                   child: AnimatedContainer(
@@ -887,7 +1171,7 @@ class _NewCategoryForm extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Save
+          // Save button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -895,7 +1179,8 @@ class _NewCategoryForm extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 44),
               ),
-              child: Text(isEditing ? 'Update Category' : 'Create Category'),
+              child:
+                  Text(isEditing ? 'Update Category' : 'Create Category'),
             ),
           ),
         ],

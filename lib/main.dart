@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_manager/core/services/preferences_service.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/data/datasources/local/isar_service.dart';
-import 'package:money_manager/presentation/views/dashboard_view.dart';
+import 'package:money_manager/presentation/views/home_shell.dart';
 import 'package:money_manager/presentation/views/onboarding_view.dart';
 import 'package:money_manager/services/notification_service.dart';
 
@@ -41,7 +41,7 @@ class VaultCashApp extends StatelessWidget {
       title: 'VaultCash',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: isSetup ? const DashboardView() : const OnboardingView(),
+      home: isSetup ? const HomeShell() : const OnboardingView(),
     );
   }
 }

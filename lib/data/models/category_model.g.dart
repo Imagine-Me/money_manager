@@ -37,8 +37,13 @@ const CategoryModelSchema = CollectionSchema(
       name: r'name',
       type: IsarType.string,
     ),
-    r'type': PropertySchema(
+    r'parentId': PropertySchema(
       id: 4,
+      name: r'parentId',
+      type: IsarType.long,
+    ),
+    r'type': PropertySchema(
+      id: 5,
       name: r'type',
       type: IsarType.string,
     )
@@ -93,7 +98,8 @@ void _categoryModelSerialize(
   writer.writeLong(offsets[1], object.iconCodePoint);
   writer.writeString(offsets[2], object.iconFontFamily);
   writer.writeString(offsets[3], object.name);
-  writer.writeString(offsets[4], object.type);
+  writer.writeLong(offsets[4], object.parentId);
+  writer.writeString(offsets[5], object.type);
 }
 
 CategoryModel _categoryModelDeserialize(
@@ -108,7 +114,8 @@ CategoryModel _categoryModelDeserialize(
   object.iconFontFamily = reader.readString(offsets[2]);
   object.id = id;
   object.name = reader.readString(offsets[3]);
-  object.type = reader.readString(offsets[4]);
+  object.parentId = reader.readLongOrNull(offsets[4]);
+  object.type = reader.readString(offsets[5]);
   return object;
 }
 
@@ -128,6 +135,8 @@ P _categoryModelDeserializeProp<P>(
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
+      return (reader.readLongOrNull(offset)) as P;
+    case 5:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -767,6 +776,80 @@ extension CategoryModelQueryFilter
     });
   }
 
+  QueryBuilder<CategoryModel, CategoryModel, QAfterFilterCondition>
+      parentIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'parentId',
+      ));
+    });
+  }
+
+  QueryBuilder<CategoryModel, CategoryModel, QAfterFilterCondition>
+      parentIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'parentId',
+      ));
+    });
+  }
+
+  QueryBuilder<CategoryModel, CategoryModel, QAfterFilterCondition>
+      parentIdEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'parentId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<CategoryModel, CategoryModel, QAfterFilterCondition>
+      parentIdGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'parentId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<CategoryModel, CategoryModel, QAfterFilterCondition>
+      parentIdLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'parentId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<CategoryModel, CategoryModel, QAfterFilterCondition>
+      parentIdBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'parentId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<CategoryModel, CategoryModel, QAfterFilterCondition> typeEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -964,6 +1047,19 @@ extension CategoryModelQuerySortBy
     });
   }
 
+  QueryBuilder<CategoryModel, CategoryModel, QAfterSortBy> sortByParentId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<CategoryModel, CategoryModel, QAfterSortBy>
+      sortByParentIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentId', Sort.desc);
+    });
+  }
+
   QueryBuilder<CategoryModel, CategoryModel, QAfterSortBy> sortByType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'type', Sort.asc);
@@ -1044,6 +1140,19 @@ extension CategoryModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<CategoryModel, CategoryModel, QAfterSortBy> thenByParentId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<CategoryModel, CategoryModel, QAfterSortBy>
+      thenByParentIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'parentId', Sort.desc);
+    });
+  }
+
   QueryBuilder<CategoryModel, CategoryModel, QAfterSortBy> thenByType() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'type', Sort.asc);
@@ -1087,6 +1196,12 @@ extension CategoryModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<CategoryModel, CategoryModel, QDistinct> distinctByParentId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'parentId');
+    });
+  }
+
   QueryBuilder<CategoryModel, CategoryModel, QDistinct> distinctByType(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1125,6 +1240,12 @@ extension CategoryModelQueryProperty
   QueryBuilder<CategoryModel, String, QQueryOperations> nameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'name');
+    });
+  }
+
+  QueryBuilder<CategoryModel, int?, QQueryOperations> parentIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'parentId');
     });
   }
 

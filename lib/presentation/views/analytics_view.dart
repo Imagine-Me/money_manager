@@ -19,6 +19,7 @@ class AnalyticsView extends ConsumerStatefulWidget {
 class _AnalyticsViewState extends ConsumerState<AnalyticsView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  bool _showSubcategories = false;
 
   @override
   void initState() {
@@ -61,27 +62,63 @@ class _AnalyticsViewState extends ConsumerState<AnalyticsView>
           child: Text(e.toString(),
               style: const TextStyle(color: AppTheme.burnColor)),
         ),
-        data: (analytics) => TabBarView(
-          controller: _tabController,
-          children: [
-            _AnalyticsTab(
-              type: TransactionType.burn,
-              total: analytics.totalBurn,
-              monthlyTotal: analytics.monthlyBurn,
-              delta: analytics.delta,
-              weeklyData: analytics.weeklySpend,
-              breakdown: analytics.burnCategoryBreakdown,
-            ),
-            _AnalyticsTab(
-              type: TransactionType.store,
-              total: analytics.totalStore,
-              monthlyTotal: 0,
-              delta: 0,
-              weeklyData: List.filled(7, 0),
-              breakdown: analytics.storeCategoryBreakdown,
-            ),
-          ],
-        ),
+        data: (analytics) {
+          final burnBreakdown = _showSubcategories
+              ? analytics.burnCategoryBreakdown
+              : analytics.burnParentBreakdown;
+          final storeBreakdown = _showSubcategories
+              ? analytics.storeCategoryBreakdown
+              : analytics.storeParentBreakdown;
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                child: Row(
+                  children: [
+                    const Text(
+                      'VIEW BY',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const Spacer(),
+                    _DrillToggle(
+                      showSubcategories: _showSubcategories,
+                      onChanged: (v) =>
+                          setState(() => _showSubcategories = v),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _AnalyticsTab(
+                      type: TransactionType.burn,
+                      total: analytics.totalBurn,
+                      monthlyTotal: analytics.monthlyBurn,
+                      delta: analytics.delta,
+                      weeklyData: analytics.weeklySpend,
+                      breakdown: burnBreakdown,
+                    ),
+                    _AnalyticsTab(
+                      type: TransactionType.store,
+                      total: analytics.totalStore,
+                      monthlyTotal: 0,
+                      delta: 0,
+                      weeklyData: List.filled(7, 0),
+                      breakdown: storeBreakdown,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -265,6 +302,68 @@ class _AnalyticsTab extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Drill Toggle ────────────────────────────────────────────────────────────
+
+class _DrillToggle extends StatelessWidget {
+  const _DrillToggle(
+      {required this.showSubcategories, required this.onChanged});
+
+  final bool showSubcategories;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _chip('Category', !showSubcategories, () => onChanged(false)),
+          const SizedBox(width: 4),
+          _chip('Subcategory', showSubcategories, () => onChanged(true)),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) =>
+      GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color:
+                selected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : [],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.white38,
+              fontWeight:
+                  selected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
 }
 
 class _CategoryProgress extends StatelessWidget {
