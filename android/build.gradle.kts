@@ -19,6 +19,16 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Fix for pub packages that predate the AGP 8 namespace requirement
+subprojects {
+    plugins.withId("com.android.library") {
+        val androidExt = extensions.getByType(com.android.build.gradle.LibraryExtension::class)
+        if (androidExt.namespace == null) {
+            androidExt.namespace = project.group.toString()
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
