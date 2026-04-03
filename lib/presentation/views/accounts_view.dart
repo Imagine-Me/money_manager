@@ -8,6 +8,7 @@ import 'package:money_manager/core/utils/currency_formatter.dart';
 import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
+import 'package:money_manager/presentation/widgets/bank_logo.dart';
 import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
 
 // ─── Main View ────────────────────────────────────────────────────────────────
@@ -335,10 +336,13 @@ class _AccountCard extends StatelessWidget {
                 color: account.color.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                Icons.account_balance_rounded,
-                color: account.color,
-                size: 22,
+              child: Center(
+                child: BankLogo(
+                  bank: account.bank,
+                  color: account.color,
+                  size: 44,
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
             if (account.isPrimary)
@@ -743,12 +747,16 @@ class _BankSelectorButton extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.account_balance_rounded,
-              size: 20,
-              color: selected != null
-                  ? AppTheme.primaryColor
-                  : Colors.white38,
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: BankLogo(
+                bank: selected,
+                color: selected != null
+                    ? AppTheme.primaryColor
+                    : Colors.white38,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -902,10 +910,13 @@ class _BankSelectorSheetState extends State<_BankSelectorSheet> {
                                   .withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(
-                              Icons.account_balance_rounded,
-                              color: AppTheme.primaryColor,
-                              size: 20,
+                            child: Center(
+                              child: BankLogo(
+                                bank: bank,
+                                color: AppTheme.primaryColor,
+                                size: 38,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                           ),
                           title: Text(
@@ -1417,10 +1428,13 @@ class _AccountDropdown extends StatelessWidget {
                           color: a.color.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Icon(
-                          Icons.account_balance_rounded,
-                          color: a.color,
-                          size: 14,
+                        child: Center(
+                          child: BankLogo(
+                            bank: a.bank,
+                            color: a.color,
+                            size: 24,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1498,10 +1512,13 @@ class _AccountTransactionsSheet extends ConsumerWidget {
                       color: account.color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      Icons.account_balance_rounded,
-                      color: account.color,
-                      size: 22,
+                    child: Center(
+                      child: BankLogo(
+                        bank: account.bank,
+                        color: account.color,
+                        size: 40,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),

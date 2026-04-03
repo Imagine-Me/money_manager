@@ -6,6 +6,21 @@ class IndianBank {
   final String? shortName;
 
   String get displayName => shortName ?? name;
+
+  /// Returns the asset path for the bank logo if one exists, otherwise null.
+  String? get logoAsset {
+    const _logos = {
+      'canara': 'assets/banks/canara.svg',
+      'dcb': 'assets/banks/dcb.svg',
+      'federal': 'assets/banks/federal_bank.svg',
+      'hdfc': 'assets/banks/hdfc.svg',
+      'icici': 'assets/banks/icici.svg',
+      'jupiter': 'assets/banks/jupyter.svg',
+      'sbi': 'assets/banks/sbi.svg',
+      'slice': 'assets/banks/slice.png',
+    };
+    return _logos[code];
+  }
 }
 
 class IndianBanks {
@@ -74,6 +89,7 @@ class IndianBanks {
     // ─── Digital / Neo Banks ──────────────────────────────────────────────────
     IndianBank(name: 'Fi Money', code: 'fi'),
     IndianBank(name: 'Jupiter', code: 'jupiter'),
+    IndianBank(name: 'Slice', code: 'slice'),
     IndianBank(name: 'Navi', code: 'navi'),
     IndianBank(name: 'Niyo', code: 'niyo'),
     IndianBank(name: 'Groww', code: 'groww'),

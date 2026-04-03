@@ -7,6 +7,7 @@ import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
+import 'package:money_manager/presentation/widgets/bank_logo.dart';
 
 class AddTransactionView extends ConsumerStatefulWidget {
   const AddTransactionView({super.key, this.existing});
@@ -1448,10 +1449,10 @@ class _AccountPicker extends StatelessWidget {
                     .withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.account_balance_rounded,
-                size: 16,
+              child: BankLogo(
+                bank: selected?.bank,
                 color: selected?.color ?? Colors.white38,
+                size: 28,
               ),
             ),
             const SizedBox(width: 12),
@@ -1548,8 +1549,11 @@ class _AccountPicker extends StatelessWidget {
                           color: account.color.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.account_balance_rounded,
-                            color: account.color, size: 20),
+                        child: BankLogo(
+                          bank: account.bank,
+                          color: account.color,
+                          size: 40,
+                        ),
                       ),
                       if (account.isPrimary)
                         Positioned(
