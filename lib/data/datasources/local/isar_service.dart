@@ -3,6 +3,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:money_manager/core/utils/category_seeder.dart';
 import 'package:money_manager/data/models/account_model.dart';
 import 'package:money_manager/data/models/category_model.dart';
+import 'package:money_manager/data/models/recurring_transaction_model.dart';
 import 'package:money_manager/data/models/transaction_model.dart';
 
 class IsarService {
@@ -22,7 +23,12 @@ class IsarService {
 
     final dir = await getApplicationDocumentsDirectory();
     _isar = await Isar.open(
-      [AccountModelSchema, CategoryModelSchema, TransactionModelSchema],
+      [
+        AccountModelSchema,
+        CategoryModelSchema,
+        TransactionModelSchema,
+        RecurringTransactionModelSchema,
+      ],
       directory: dir.path,
       name: 'vaultcash',
     );

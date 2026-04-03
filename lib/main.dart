@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_manager/core/services/preferences_service.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/data/datasources/local/isar_service.dart';
+import 'package:money_manager/data/repositories/recurring_transaction_repository_impl.dart';
 import 'package:money_manager/presentation/views/home_shell.dart';
 import 'package:money_manager/presentation/views/onboarding_view.dart';
 import 'package:money_manager/services/notification_service.dart';
@@ -18,6 +19,10 @@ Future<void> main() async {
 
   // Initialise Isar database.
   await IsarService.instance.open();
+
+  // Process any recurring transactions due today.
+  await RecurringTransactionRepositoryImpl(IsarService.instance)
+      .processDueTransactions();
 
   // Load user preferences (currency etc.).
   await PreferencesService.instance.load();

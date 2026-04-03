@@ -6,6 +6,7 @@ import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
+import 'package:money_manager/domain/entities/recurring_transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/widgets/bank_logo.dart';
 
@@ -30,6 +31,12 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   AccountEntity? _toAccount; // destination for transfer type
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
+
+  // ─── Recurring state ───────────────────────────────────────────────────────
+  bool _isRecurring = false;
+  RecurringFrequency _recurFrequency = RecurringFrequency.monthly;
+  int _recurDay = DateTime.now().day; // day-of-month default
+  int _recurMonth = DateTime.now().month; // for yearly
 
   @override
   void initState() {
@@ -175,14 +182,50 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
               ),
               const SizedBox(height: 20),
 
-              // ─── Date ─────────────────────────────────────────────────────
-              _FieldLabel(label: 'Date'),
-              const SizedBox(height: 8),
-              _DatePicker(
-                selected: _selectedDate,
-                onChanged: (d) => setState(() => _selectedDate = d),
-              ),
-              const SizedBox(height: 20),
+              // ─── Date (hidden when recurring) ─────────────────────────
+              if (!_isRecurring) ...[
+                _FieldLabel(label: 'Date'),
+                const SizedBox(height: 8),
+                _DatePicker(
+                  selected: _selectedDate,
+                  onChanged: (d) => setState(() => _selectedDate = d),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // ─── Recurring toggle + config (burn/store only) ──────────
+              if (_type != TransactionType.transfer) ...[
+                _RecurringToggle(
+                  isRecurring: _isRecurring,
+                  onChanged: (v) => setState(() {
+                    _isRecurring = v;
+                    if (v) {
+                      // Reset to sensible defaults
+                      _recurFrequency = RecurringFrequency.monthly;
+                      _recurDay = DateTime.now().day;
+                      _recurMonth = DateTime.now().month;
+                    }
+                  }),
+                ),
+                if (_isRecurring) ...[
+                  const SizedBox(height: 12),
+                  _RecurringConfig(
+                    frequency: _recurFrequency,
+                    recurDay: _recurDay,
+                    recurMonth: _recurMonth,
+                    onFrequencyChanged: (f) => setState(() {
+                      _recurFrequency = f;
+                      _recurDay = f == RecurringFrequency.weekly
+                          ? DateTime.now().weekday
+                          : DateTime.now().day;
+                      _recurMonth = DateTime.now().month;
+                    }),
+                    onDayChanged: (d) => setState(() => _recurDay = d),
+                    onMonthChanged: (m) => setState(() => _recurMonth = m),
+                  ),
+                ],
+                const SizedBox(height: 20),
+              ],
 
               // ─── Account / From + To (for transfer) ──────────────────────
               if (accounts.isNotEmpty) ...[  
@@ -323,6 +366,24 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
           toAccountId: resolvedTo?.id,
         );
         await txRepo.save(tx);
+      } else if (_isRecurring) {
+        // ── Save as a recurring template ──────────────────────────────
+        final recurRepo = ref.read(recurringTransactionRepositoryProvider);
+        final entity = RecurringTransactionEntity(
+          id: 0,
+          title: _titleController.text.trim(),
+          amount: amount,
+          type: _type,
+          note: _noteController.text.trim(),
+          frequency: _recurFrequency,
+          recurDay: _recurDay,
+          recurMonth: _recurMonth,
+          accountId: resolvedAccount?.id,
+          category: _selectedCategory,
+        );
+        await recurRepo.save(entity, _selectedCategory!);
+        // Immediately process in case today is already the due date.
+        await recurRepo.processDueTransactions();
       } else {
         final tx = TransactionEntity(
           id: widget.existing?.id ?? 0,
@@ -342,9 +403,11 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                widget.existing == null
-                    ? 'Transaction saved!'
-                    : 'Transaction updated!'),
+                _isRecurring
+                    ? 'Recurring transaction saved!'
+                    : widget.existing == null
+                        ? 'Transaction saved!'
+                        : 'Transaction updated!'),
             backgroundColor: AppTheme.storeColor.withValues(alpha: 0.8),
           ),
         );
@@ -1614,6 +1677,286 @@ class _AccountPicker extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Recurring Toggle ─────────────────────────────────────────────────────────
+
+class _RecurringToggle extends StatelessWidget {
+  const _RecurringToggle({
+    required this.isRecurring,
+    required this.onChanged,
+  });
+
+  final bool isRecurring;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white10),
+      ),
+      padding: const EdgeInsets.all(4),
+      child: Row(
+        children: [
+          _tab(false, Icons.looks_one_rounded, 'One-time'),
+          _tab(true, Icons.repeat_rounded, 'Recurring'),
+        ],
+      ),
+    );
+  }
+
+  Widget _tab(bool value, IconData icon, String label) {
+    final isSelected = isRecurring == value;
+    const color = AppTheme.primaryColor;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onChanged(value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: isSelected
+                ? Border.all(color: color.withValues(alpha: 0.5))
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 16,
+                  color: isSelected ? color : Colors.white38),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? color : Colors.white38,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Recurring Config ────────────────────────────────────────────────────────
+
+class _RecurringConfig extends StatelessWidget {
+  const _RecurringConfig({
+    required this.frequency,
+    required this.recurDay,
+    required this.recurMonth,
+    required this.onFrequencyChanged,
+    required this.onDayChanged,
+    required this.onMonthChanged,
+  });
+
+  final RecurringFrequency frequency;
+  final int recurDay;
+  final int recurMonth;
+  final ValueChanged<RecurringFrequency> onFrequencyChanged;
+  final ValueChanged<int> onDayChanged;
+  final ValueChanged<int> onMonthChanged;
+
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border:
+            Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ─── Frequency row ─────────────────────────────────────────────
+          Row(
+            children: RecurringFrequency.values.map((f) {
+              final isSelected = frequency == f;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => onFrequencyChanged(f),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    height: 36,
+                    margin: EdgeInsets.only(
+                        right: f != RecurringFrequency.yearly ? 6 : 0),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primaryColor.withValues(alpha: 0.2)
+                          : AppTheme.cardElevated,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.primaryColor.withValues(alpha: 0.6)
+                            : Colors.white10,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        f.label,
+                        style: TextStyle(
+                          color: isSelected
+                              ? AppTheme.primaryColor
+                              : Colors.white38,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+
+          // ─── Day picker ────────────────────────────────────────────────
+          if (frequency == RecurringFrequency.weekly) ...[
+            const Text('Repeat on',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(7, (i) {
+                final weekday = i + 1; // 1=Mon … 7=Sun
+                final isSelected = recurDay == weekday;
+                return GestureDetector(
+                  onTap: () => onDayChanged(weekday),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primaryColor
+                          : AppTheme.cardElevated,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        _weekdays[i][0],
+                        style: TextStyle(
+                          color: isSelected ? Colors.black : Colors.white54,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ] else if (frequency == RecurringFrequency.monthly) ...[
+            Row(
+              children: [
+                const Text('Day of month',
+                    style: TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _DayDropdown(
+                    value: recurDay,
+                    max: 31,
+                    onChanged: onDayChanged,
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            // Yearly
+            Row(
+              children: [
+                const Text('Month',
+                    style: TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButton<int>(
+                    value: recurMonth,
+                    isExpanded: true,
+                    dropdownColor: AppTheme.surfaceColor,
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                    underline:
+                        Container(height: 1, color: Colors.white12),
+                    onChanged: (v) {
+                      if (v != null) onMonthChanged(v);
+                    },
+                    items: List.generate(
+                      12,
+                      (i) => DropdownMenuItem(
+                        value: i + 1,
+                        child: Text(_months[i]),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Text('Day',
+                    style: TextStyle(color: Colors.white54, fontSize: 12)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _DayDropdown(
+                    value: recurDay,
+                    max: 31,
+                    onChanged: onDayChanged,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Day Dropdown helper ──────────────────────────────────────────────────────
+
+class _DayDropdown extends StatelessWidget {
+  const _DayDropdown({
+    required this.value,
+    required this.max,
+    required this.onChanged,
+  });
+
+  final int value;
+  final int max;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButton<int>(
+      value: value.clamp(1, max),
+      isExpanded: true,
+      dropdownColor: AppTheme.surfaceColor,
+      style: const TextStyle(color: Colors.white, fontSize: 13),
+      underline: Container(height: 1, color: Colors.white12),
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
+      items: List.generate(
+        max,
+        (i) => DropdownMenuItem(value: i + 1, child: Text('${i + 1}')),
       ),
     );
   }

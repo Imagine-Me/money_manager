@@ -25,6 +25,26 @@ enum TransactionType {
   }
 }
 
+enum RecurringFrequency {
+  weekly,
+  monthly,
+  yearly;
+
+  String get label => switch (this) {
+        weekly => 'Weekly',
+        monthly => 'Monthly',
+        yearly => 'Yearly',
+      };
+
+  static RecurringFrequency fromString(String value) {
+    return switch (value) {
+      'monthly' => monthly,
+      'yearly' => yearly,
+      _ => weekly,
+    };
+  }
+}
+
 class AppConstants {
   AppConstants._();
 

@@ -3,12 +3,15 @@ import 'package:money_manager/core/constants/app_constants.dart';
 import 'package:money_manager/data/datasources/local/isar_service.dart';
 import 'package:money_manager/data/repositories/account_repository_impl.dart';
 import 'package:money_manager/data/repositories/category_repository_impl.dart';
+import 'package:money_manager/data/repositories/recurring_transaction_repository_impl.dart';
 import 'package:money_manager/data/repositories/transaction_repository_impl.dart';
 import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
+import 'package:money_manager/domain/entities/recurring_transaction_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/domain/repositories/account_repository.dart';
 import 'package:money_manager/domain/repositories/category_repository.dart';
+import 'package:money_manager/domain/repositories/recurring_transaction_repository.dart';
 import 'package:money_manager/domain/repositories/transaction_repository.dart';
 import 'package:money_manager/domain/usecases/analytics_engine.dart';
 
@@ -24,6 +27,11 @@ final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
 
 final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepositoryImpl(ref.watch(isarServiceProvider));
+});
+
+final recurringTransactionRepositoryProvider =
+    Provider<RecurringTransactionRepository>((ref) {
+  return RecurringTransactionRepositoryImpl(ref.watch(isarServiceProvider));
 });
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
@@ -56,6 +64,11 @@ final primaryAccountProvider = Provider<AsyncValue<AccountEntity?>>((ref) {
 
 final transactionListProvider = StreamProvider<List<TransactionEntity>>((ref) {
   return ref.watch(transactionRepositoryProvider).watchAll();
+});
+
+final recurringTransactionListProvider =
+    StreamProvider<List<RecurringTransactionEntity>>((ref) {
+  return ref.watch(recurringTransactionRepositoryProvider).watchAll();
 });
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
