@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_manager/core/constants/app_constants.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
+import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
@@ -24,6 +25,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
 
   TransactionType _type = TransactionType.burn;
   CategoryEntity? _selectedCategory;
+  AccountEntity? _selectedAccount; // null = use primary
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
 
@@ -38,6 +40,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
       _type = e.type;
       _selectedCategory = e.category;
       _selectedDate = e.date;
+      // accountId resolved lazily in build via accountListProvider
     }
   }
 
@@ -51,6 +54,26 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
 
   @override
   Widget build(BuildContext context) {
+    final accountsAsync = ref.watch(accountListProvider);
+    final accounts = accountsAsync.valueOrNull ?? [];
+
+    // Resolve account to show in picker:
+    // for existing tx use saved accountId; for new tx use primary / first.
+    AccountEntity? effectiveAccount = _selectedAccount;
+    if (effectiveAccount == null && accounts.isNotEmpty) {
+      final existingAccountId = widget.existing?.accountId;
+      if (existingAccountId != null) {
+        try {
+          effectiveAccount =
+              accounts.firstWhere((a) => a.id == existingAccountId);
+        } catch (_) {}
+      }
+      effectiveAccount ??= accounts.firstWhere(
+        (a) => a.isPrimary,
+        orElse: () => accounts.first,
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
       appBar: AppBar(
@@ -140,6 +163,18 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
               ),
               const SizedBox(height: 20),
 
+              // ─── Account ──────────────────────────────────────────────────
+              if (accounts.isNotEmpty) ...[  
+                _FieldLabel(label: 'Account'),
+                const SizedBox(height: 8),
+                _AccountPicker(
+                  accounts: accounts,
+                  selected: effectiveAccount,
+                  onChanged: (a) => setState(() => _selectedAccount = a),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               // ─── Note ─────────────────────────────────────────────────────
               _FieldLabel(label: 'Note (optional)'),
               const SizedBox(height: 8),
@@ -204,6 +239,23 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
       final txRepo = ref.read(transactionRepositoryProvider);
       final amount = double.parse(_amountController.text);
 
+      // Resolve effective account
+      final accounts = ref.read(accountListProvider).valueOrNull ?? [];
+      AccountEntity? resolvedAccount = _selectedAccount;
+      if (resolvedAccount == null && accounts.isNotEmpty) {
+        final existingAccountId = widget.existing?.accountId;
+        if (existingAccountId != null) {
+          try {
+            resolvedAccount =
+                accounts.firstWhere((a) => a.id == existingAccountId);
+          } catch (_) {}
+        }
+        resolvedAccount ??= accounts.firstWhere(
+          (a) => a.isPrimary,
+          orElse: () => accounts.first,
+        );
+      }
+
       final tx = TransactionEntity(
         id: widget.existing?.id ?? 0,
         title: _titleController.text.trim(),
@@ -212,6 +264,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
         type: _type,
         note: _noteController.text.trim(),
         category: _selectedCategory,
+        accountId: resolvedAccount?.id,
       );
 
       await txRepo.save(tx, _selectedCategory!);
@@ -1276,6 +1329,213 @@ class _FieldLabel extends StatelessWidget {
         fontSize: 13,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+// ─── Account Picker ────────────────────────────────────────────────────────────
+
+class _AccountPicker extends StatelessWidget {
+  const _AccountPicker({
+    required this.accounts,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<AccountEntity> accounts;
+  final AccountEntity? selected;
+  final ValueChanged<AccountEntity> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _showPicker(context),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: AppTheme.cardColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected != null
+                ? selected!.color.withValues(alpha: 0.5)
+                : Colors.white12,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: (selected?.color ?? AppTheme.primaryColor)
+                    .withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.account_balance_rounded,
+                size: 16,
+                color: selected?.color ?? Colors.white38,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    selected?.name ?? 'Select account',
+                    style: TextStyle(
+                      color: selected != null ? Colors.white : Colors.white38,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (selected?.bank != null)
+                    Text(
+                      selected!.bank!.name,
+                      style: const TextStyle(
+                          color: Colors.white38, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            if (selected != null)
+              Text(
+                '₹${selected!.balance.toStringAsFixed(0)}',
+                style: TextStyle(
+                  color: selected!.color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            const SizedBox(width: 6),
+            const Icon(Icons.unfold_more_rounded,
+                size: 18, color: Colors.white24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Select Account',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              ...accounts.map((account) {
+                final isSelected = selected?.id == account.id;
+                return ListTile(
+                  leading: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: account.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.account_balance_rounded,
+                            color: account.color, size: 20),
+                      ),
+                      if (account.isPrimary)
+                        Positioned(
+                          top: -3,
+                          right: -3,
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: const BoxDecoration(
+                              color: AppTheme.goldAccent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.star_rounded,
+                                color: Colors.black, size: 9),
+                          ),
+                        ),
+                    ],
+                  ),
+                  title: Text(
+                    account.name,
+                    style: TextStyle(
+                      color: isSelected ? account.color : Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: account.bank != null
+                      ? Text(
+                          account.bank!.name,
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 12),
+                        )
+                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '₹${account.balance.toStringAsFixed(0)}',
+                        style: TextStyle(
+                          color: account.color,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      if (isSelected) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.check_circle_rounded,
+                            color: account.color, size: 18),
+                      ],
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    onChanged(account);
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }

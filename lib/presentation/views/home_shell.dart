@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
+import 'package:money_manager/presentation/views/accounts_view.dart';
 import 'package:money_manager/presentation/views/add_transaction_view.dart';
 import 'package:money_manager/presentation/views/analytics_view.dart';
 import 'package:money_manager/presentation/views/dashboard_view.dart';
@@ -19,6 +20,7 @@ class _HomeShellState extends State<HomeShell> {
     DashboardView(),
     ReportView(),
     AnalyticsView(),
+    AccountsView(),
   ];
 
   @override
@@ -30,6 +32,7 @@ class _HomeShellState extends State<HomeShell> {
         children: _pages,
       ),
       floatingActionButton: _currentIndex == 0
+          // accounts tab has its own FAB inside AccountsView
           ? FloatingActionButton(
               heroTag: 'home_fab',
               onPressed: () => Navigator.of(context).push(
@@ -67,6 +70,10 @@ class _HomeShellState extends State<HomeShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart_rounded),
             label: 'Analytics',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_balance_rounded),
+            label: 'Accounts',
           ),
         ],
       ),

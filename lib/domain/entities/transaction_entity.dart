@@ -9,6 +9,7 @@ class TransactionEntity {
   final TransactionType type;
   final String note;
   final CategoryEntity? category;
+  final int? accountId;
 
   const TransactionEntity({
     required this.id,
@@ -18,6 +19,7 @@ class TransactionEntity {
     required this.type,
     required this.note,
     this.category,
+    this.accountId,
   });
 
   bool get isBurn => type == TransactionType.burn;

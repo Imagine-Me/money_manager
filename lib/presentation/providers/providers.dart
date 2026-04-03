@@ -1,10 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_manager/core/constants/app_constants.dart';
 import 'package:money_manager/data/datasources/local/isar_service.dart';
+import 'package:money_manager/data/repositories/account_repository_impl.dart';
 import 'package:money_manager/data/repositories/category_repository_impl.dart';
 import 'package:money_manager/data/repositories/transaction_repository_impl.dart';
+import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
+import 'package:money_manager/domain/repositories/account_repository.dart';
 import 'package:money_manager/domain/repositories/category_repository.dart';
 import 'package:money_manager/domain/repositories/transaction_repository.dart';
 import 'package:money_manager/domain/usecases/analytics_engine.dart';
@@ -23,6 +26,10 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepositoryImpl(ref.watch(isarServiceProvider));
 });
 
+final accountRepositoryProvider = Provider<AccountRepository>((ref) {
+  return AccountRepositoryImpl(ref.watch(isarServiceProvider));
+});
+
 final analyticsEngineProvider = Provider<AnalyticsEngine>((ref) {
   return const AnalyticsEngine();
 });
@@ -31,6 +38,20 @@ final analyticsEngineProvider = Provider<AnalyticsEngine>((ref) {
 
 final categoryListProvider = StreamProvider<List<CategoryEntity>>((ref) {
   return ref.watch(categoryRepositoryProvider).watchAll();
+});
+
+final accountListProvider = StreamProvider<List<AccountEntity>>((ref) {
+  return ref.watch(accountRepositoryProvider).watchAll();
+});
+
+final primaryAccountProvider = Provider<AsyncValue<AccountEntity?>>((ref) {
+  return ref.watch(accountListProvider).whenData((accounts) {
+    if (accounts.isEmpty) return null;
+    return accounts.firstWhere(
+      (a) => a.isPrimary,
+      orElse: () => accounts.first,
+    );
+  });
 });
 
 final transactionListProvider = StreamProvider<List<TransactionEntity>>((ref) {

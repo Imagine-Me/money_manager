@@ -34,58 +34,54 @@ class _SpendingPieChartState extends State<SpendingPieChart> {
     final total = widget.data.values.fold(0.0, (a, b) => a + b);
     final entries = widget.data.entries.toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // ── Pie chart (left) ─────────────────────────────────────────────
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 150,
-            height: 150,
-            child: PieChart(
-              PieChartData(
-                pieTouchData: PieTouchData(
-                  touchCallback: (event, response) {
-                    setState(() {
-                      if (!event.isInterestedForInteractions ||
-                          response == null ||
-                          response.touchedSection == null) {
-                        _touchedIndex = null;
-                        return;
-                      }
-                      _touchedIndex =
-                          response.touchedSection!.touchedSectionIndex;
-                    });
-                  },
-                ),
-                centerSpaceRadius: 36,
-                centerSpaceColor: AppTheme.cardColor,
-                sectionsSpace: 2,
-                sections: List.generate(entries.length, (i) {
-                  final entry = entries[i];
-                  final isTouched = i == _touchedIndex;
-                  final pct = entry.value / total * 100;
-                  return PieChartSectionData(
-                    value: entry.value,
-                    color: entry.key.color,
-                    radius: isTouched ? 52 : 44,
-                    title: isTouched ? '${pct.toStringAsFixed(1)}%' : '',
-                    titleStyle: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  );
-                }),
+        // ── Pie chart (left) ──────────────────────────────────────────────
+        SizedBox(
+          width: 150,
+          height: 150,
+          child: PieChart(
+            PieChartData(
+              pieTouchData: PieTouchData(
+                touchCallback: (event, response) {
+                  setState(() {
+                    if (!event.isInterestedForInteractions ||
+                        response == null ||
+                        response.touchedSection == null) {
+                      _touchedIndex = null;
+                      return;
+                    }
+                    _touchedIndex =
+                        response.touchedSection!.touchedSectionIndex;
+                  });
+                },
               ),
+              centerSpaceRadius: 36,
+              centerSpaceColor: AppTheme.cardColor,
+              sectionsSpace: 2,
+              sections: List.generate(entries.length, (i) {
+                final entry = entries[i];
+                final isTouched = i == _touchedIndex;
+                final pct = entry.value / total * 100;
+                return PieChartSectionData(
+                  value: entry.value,
+                  color: entry.key.color,
+                  radius: isTouched ? 52 : 44,
+                  title: isTouched ? '${pct.toStringAsFixed(1)}%' : '',
+                  titleStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                );
+              }),
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        // ── Legend (bottom right) ────────────────────────────────────────
-        Align(
-          alignment: Alignment.centerRight,
+        const SizedBox(width: 16),
+        // ── Legend (right) ────────────────────────────────────────────────
+        Expanded(
           child: _Legend(entries: entries, total: total),
         ),
       ],
@@ -129,29 +125,35 @@ class _LegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 11),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '${percent.toStringAsFixed(0)}%',
-          style: TextStyle(
-              color: color, fontSize: 11, fontWeight: FontWeight.w700),
-        ),
-      ],
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '${percent.toStringAsFixed(0)}%',
+            style: TextStyle(
+                color: color, fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -90,7 +90,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
         ..amount = transaction.amount
         ..date = transaction.date
         ..type = transaction.type.name
-        ..note = transaction.note;
+        ..note = transaction.note
+        ..accountId = transaction.accountId;
 
       if (transaction.id > 0) model.id = transaction.id;
 
@@ -146,6 +147,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       date: m.date,
       type: TransactionType.fromString(m.type),
       note: m.note,
+      accountId: m.accountId,
       category: cat != null
           ? CategoryEntity(
               id: cat.id,
@@ -154,6 +156,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
               iconCodePoint: cat.iconCodePoint,
               iconFontFamily: cat.iconFontFamily,
               type: TransactionType.fromString(cat.type),
+              parentId: cat.parentId,
             )
           : null,
     );

@@ -17,28 +17,33 @@ const TransactionModelSchema = CollectionSchema(
   name: r'TransactionModel',
   id: -8282894918172491246,
   properties: {
-    r'amount': PropertySchema(
+    r'accountId': PropertySchema(
       id: 0,
+      name: r'accountId',
+      type: IsarType.long,
+    ),
+    r'amount': PropertySchema(
+      id: 1,
       name: r'amount',
       type: IsarType.double,
     ),
     r'date': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'date',
       type: IsarType.dateTime,
     ),
     r'note': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'note',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'type',
       type: IsarType.string,
     )
@@ -82,11 +87,12 @@ void _transactionModelSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeDouble(offsets[0], object.amount);
-  writer.writeDateTime(offsets[1], object.date);
-  writer.writeString(offsets[2], object.note);
-  writer.writeString(offsets[3], object.title);
-  writer.writeString(offsets[4], object.type);
+  writer.writeLong(offsets[0], object.accountId);
+  writer.writeDouble(offsets[1], object.amount);
+  writer.writeDateTime(offsets[2], object.date);
+  writer.writeString(offsets[3], object.note);
+  writer.writeString(offsets[4], object.title);
+  writer.writeString(offsets[5], object.type);
 }
 
 TransactionModel _transactionModelDeserialize(
@@ -96,12 +102,13 @@ TransactionModel _transactionModelDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = TransactionModel();
-  object.amount = reader.readDouble(offsets[0]);
-  object.date = reader.readDateTime(offsets[1]);
+  object.accountId = reader.readLongOrNull(offsets[0]);
+  object.amount = reader.readDouble(offsets[1]);
+  object.date = reader.readDateTime(offsets[2]);
   object.id = id;
-  object.note = reader.readString(offsets[2]);
-  object.title = reader.readString(offsets[3]);
-  object.type = reader.readString(offsets[4]);
+  object.note = reader.readString(offsets[3]);
+  object.title = reader.readString(offsets[4]);
+  object.type = reader.readString(offsets[5]);
   return object;
 }
 
@@ -113,14 +120,16 @@ P _transactionModelDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 1:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 2:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -223,6 +232,80 @@ extension TransactionModelQueryWhere
 
 extension TransactionModelQueryFilter
     on QueryBuilder<TransactionModel, TransactionModel, QFilterCondition> {
+  QueryBuilder<TransactionModel, TransactionModel, QAfterFilterCondition>
+      accountIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'accountId',
+      ));
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterFilterCondition>
+      accountIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'accountId',
+      ));
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterFilterCondition>
+      accountIdEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'accountId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterFilterCondition>
+      accountIdGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'accountId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterFilterCondition>
+      accountIdLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'accountId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterFilterCondition>
+      accountIdBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'accountId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<TransactionModel, TransactionModel, QAfterFilterCondition>
       amountEqualTo(
     double value, {
@@ -833,6 +916,20 @@ extension TransactionModelQueryLinks
 extension TransactionModelQuerySortBy
     on QueryBuilder<TransactionModel, TransactionModel, QSortBy> {
   QueryBuilder<TransactionModel, TransactionModel, QAfterSortBy>
+      sortByAccountId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'accountId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterSortBy>
+      sortByAccountIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'accountId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterSortBy>
       sortByAmount() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'amount', Sort.asc);
@@ -901,6 +998,20 @@ extension TransactionModelQuerySortBy
 
 extension TransactionModelQuerySortThenBy
     on QueryBuilder<TransactionModel, TransactionModel, QSortThenBy> {
+  QueryBuilder<TransactionModel, TransactionModel, QAfterSortBy>
+      thenByAccountId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'accountId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QAfterSortBy>
+      thenByAccountIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'accountId', Sort.desc);
+    });
+  }
+
   QueryBuilder<TransactionModel, TransactionModel, QAfterSortBy>
       thenByAmount() {
     return QueryBuilder.apply(this, (query) {
@@ -984,6 +1095,13 @@ extension TransactionModelQuerySortThenBy
 extension TransactionModelQueryWhereDistinct
     on QueryBuilder<TransactionModel, TransactionModel, QDistinct> {
   QueryBuilder<TransactionModel, TransactionModel, QDistinct>
+      distinctByAccountId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'accountId');
+    });
+  }
+
+  QueryBuilder<TransactionModel, TransactionModel, QDistinct>
       distinctByAmount() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'amount');
@@ -1023,6 +1141,12 @@ extension TransactionModelQueryProperty
   QueryBuilder<TransactionModel, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<TransactionModel, int?, QQueryOperations> accountIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'accountId');
     });
   }
 

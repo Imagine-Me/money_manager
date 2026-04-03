@@ -12,6 +12,7 @@ class TransactionModel {
   late DateTime date;
   late String type; // 'burn' or 'store'
   late String note;
+  int? accountId;
 
   final category = IsarLink<CategoryModel>();
 }
