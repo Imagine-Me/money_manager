@@ -15,6 +15,7 @@ import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
 // ─── Period enum ──────────────────────────────────────────────────────────────
 
 enum _Period { day, week, month, year }
+enum _CompareMode { prevMonth, lastYear }
 
 // ─── View ─────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ class ReportView extends ConsumerStatefulWidget {
 class _ReportViewState extends ConsumerState<ReportView> {
   _Period _period = _Period.month;
   DateTime _selectedDate = DateTime.now();
+  _CompareMode _compareMode = _CompareMode.prevMonth;
   bool _showSubcategories = false;
 
   void _goBack() {
@@ -229,6 +231,31 @@ class _ReportViewState extends ConsumerState<ReportView> {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    // ─── Spending comparison (month only) ─────────────────
+                    if (_period == _Period.month) ...[
+                      _SpendingComparisonCard(
+                        current: data,
+                        compare: _PeriodData.compute(
+                          allTx,
+                          allCategories,
+                          _Period.month,
+                          _compareMode == _CompareMode.prevMonth
+                              ? DateTime(
+                                  _selectedDate.year,
+                                  _selectedDate.month - 1,
+                                  1)
+                              : DateTime(
+                                  _selectedDate.year - 1,
+                                  _selectedDate.month,
+                                  1),
+                        ),
+                        compareMode: _compareMode,
+                        onCompareModeChanged: (m) =>
+                            setState(() => _compareMode = m),
                       ),
                       const SizedBox(height: 12),
                     ],
@@ -897,6 +924,285 @@ class _DateNavigator extends StatelessWidget {
                 Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Icon(icon, color: Colors.white70, size: 16),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Spending comparison card ─────────────────────────────────────────────────
+
+class _SpendingComparisonCard extends StatelessWidget {
+  const _SpendingComparisonCard({
+    required this.current,
+    required this.compare,
+    required this.compareMode,
+    required this.onCompareModeChanged,
+  });
+
+  final _PeriodData current;
+  final _PeriodData compare;
+  final _CompareMode compareMode;
+  final ValueChanged<_CompareMode> onCompareModeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final burnDelta = compare.totalBurn > 0
+        ? (current.totalBurn - compare.totalBurn) / compare.totalBurn * 100
+        : null;
+    final storeDelta = compare.totalStore > 0
+        ? (current.totalStore - compare.totalStore) /
+            compare.totalStore *
+            100
+        : null;
+
+    return BentoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _cardLabel('SPENDING COMPARISON'),
+              const Spacer(),
+              _CompareModeToggle(
+                mode: compareMode,
+                onChanged: onCompareModeChanged,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _CompCol(
+                    label: current.periodLabel,
+                    burn: current.totalBurn,
+                    store: current.totalStore,
+                    isCurrent: true,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                          width: 1,
+                          height: 28,
+                          color: Colors.white.withValues(alpha: 0.08)),
+                      const SizedBox(height: 4),
+                      Text(
+                        'VS',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                          width: 1,
+                          height: 28,
+                          color: Colors.white.withValues(alpha: 0.08)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _CompCol(
+                    label: compare.periodLabel,
+                    burn: compare.totalBurn,
+                    store: compare.totalStore,
+                    isCurrent: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (burnDelta != null || storeDelta != null) ...[
+            const SizedBox(height: 10),
+            Container(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.06)),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (burnDelta != null)
+                  Expanded(
+                      child: _DeltaChip(
+                          label: 'Burn',
+                          pct: burnDelta,
+                          invertColor: true)),
+                if (storeDelta != null)
+                  Expanded(
+                      child:
+                          _DeltaChip(label: 'Store', pct: storeDelta)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CompCol extends StatelessWidget {
+  const _CompCol({
+    required this.label,
+    required this.burn,
+    required this.store,
+    required this.isCurrent,
+  });
+
+  final String label;
+  final double burn;
+  final double store;
+  final bool isCurrent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment:
+          isCurrent ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: isCurrent ? Colors.white60 : Colors.white38,
+            fontSize: 11,
+            fontWeight:
+                isCurrent ? FontWeight.w600 : FontWeight.w400,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          CurrencyFormatter.formatCompact(burn),
+          style: TextStyle(
+            color: isCurrent
+                ? AppTheme.burnColor
+                : AppTheme.burnColor.withValues(alpha: 0.45),
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          'burn',
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          CurrencyFormatter.formatCompact(store),
+          style: TextStyle(
+            color: isCurrent
+                ? AppTheme.storeColor
+                : AppTheme.storeColor.withValues(alpha: 0.45),
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Text(
+          'store',
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeltaChip extends StatelessWidget {
+  const _DeltaChip({
+    required this.label,
+    required this.pct,
+    this.invertColor = false,
+  });
+
+  final String label;
+  final double pct;
+  // invertColor=true for burn: spending more is bad (red)
+  final bool invertColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final isUp = pct > 0;
+    final isGood = invertColor ? !isUp : isUp;
+    final color = pct.abs() < 0.1
+        ? Colors.white38
+        : isGood
+            ? AppTheme.storeColor
+            : AppTheme.burnColor;
+    final icon = pct.abs() < 0.1
+        ? Icons.remove_rounded
+        : isUp
+            ? Icons.arrow_upward_rounded
+            : Icons.arrow_downward_rounded;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: color, size: 12),
+        const SizedBox(width: 3),
+        Text(
+          '$label ${pct.abs().toStringAsFixed(1)}%',
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompareModeToggle extends StatelessWidget {
+  const _CompareModeToggle({required this.mode, required this.onChanged});
+
+  final _CompareMode mode;
+  final ValueChanged<_CompareMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: AppTheme.bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _chip('Prev Month', _CompareMode.prevMonth),
+          _chip('Last Year', _CompareMode.lastYear),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String label, _CompareMode m) {
+    final sel = mode == m;
+    return GestureDetector(
+      onTap: () => onChanged(m),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: sel
+              ? AppTheme.primaryColor.withValues(alpha: 0.2)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: sel ? AppTheme.primaryColor : Colors.white38,
+            fontSize: 10,
+            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+          ),
         ),
       ),
     );
