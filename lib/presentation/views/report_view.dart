@@ -27,7 +27,48 @@ class ReportView extends ConsumerStatefulWidget {
 
 class _ReportViewState extends ConsumerState<ReportView> {
   _Period _period = _Period.month;
+  DateTime _selectedDate = DateTime.now();
   bool _showSubcategories = false;
+
+  void _goBack() {
+    setState(() {
+      switch (_period) {
+        case _Period.day:
+          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+          break;
+        case _Period.week:
+          _selectedDate = _selectedDate.subtract(const Duration(days: 7));
+          break;
+        case _Period.month:
+          _selectedDate =
+              DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
+          break;
+        case _Period.year:
+          _selectedDate = DateTime(_selectedDate.year - 1);
+          break;
+      }
+    });
+  }
+
+  void _goForward() {
+    setState(() {
+      switch (_period) {
+        case _Period.day:
+          _selectedDate = _selectedDate.add(const Duration(days: 1));
+          break;
+        case _Period.week:
+          _selectedDate = _selectedDate.add(const Duration(days: 7));
+          break;
+        case _Period.month:
+          _selectedDate =
+              DateTime(_selectedDate.year, _selectedDate.month + 1, 1);
+          break;
+        case _Period.year:
+          _selectedDate = DateTime(_selectedDate.year + 1);
+          break;
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +90,24 @@ class _ReportViewState extends ConsumerState<ReportView> {
         ),
         data: (allTx) {
           final allCategories = catAsync.valueOrNull ?? [];
-          final data = _PeriodData.compute(allTx, allCategories, _period);
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final selDay = DateTime(
+              _selectedDate.year, _selectedDate.month, _selectedDate.day);
+          final thisWeekMon =
+              today.subtract(Duration(days: today.weekday - 1));
+          final selWeekMon =
+              selDay.subtract(Duration(days: selDay.weekday - 1));
+          final bool canGoNext = switch (_period) {
+            _Period.day => selDay.isBefore(today),
+            _Period.week => selWeekMon.isBefore(thisWeekMon),
+            _Period.month => _selectedDate.year < now.year ||
+                (_selectedDate.year == now.year &&
+                    _selectedDate.month < now.month),
+            _Period.year => _selectedDate.year < now.year,
+          };
+          final data = _PeriodData.compute(
+              allTx, allCategories, _period, _selectedDate);
           final burnBreakdown = _showSubcategories
               ? data.burnBreakdown
               : data.burnParentBreakdown;
@@ -65,7 +123,10 @@ class _ReportViewState extends ConsumerState<ReportView> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: _PeriodSelector(
                     selected: _period,
-                    onChanged: (p) => setState(() => _period = p),
+                    onChanged: (p) => setState(() {
+                      _period = p;
+                      _selectedDate = DateTime.now();
+                    }),
                   ),
                 ),
               ),
@@ -74,15 +135,11 @@ class _ReportViewState extends ConsumerState<ReportView> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
-                    // Period label
-                    Text(
-                      data.periodLabel,
-                      style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
+                    // Period navigator
+                    _DateNavigator(
+                      label: data.periodLabel,
+                      onPrev: _goBack,
+                      onNext: canGoNext ? _goForward : null,
                     ),
                     const SizedBox(height: 12),
 
@@ -791,6 +848,61 @@ class _DrillToggle extends StatelessWidget {
       );
 }
 
+// ─── Date navigator ─────────────────────────────────────────────────────────
+
+class _DateNavigator extends StatelessWidget {
+  const _DateNavigator({
+    required this.label,
+    required this.onPrev,
+    this.onNext,
+  });
+
+  final String label;
+  final VoidCallback onPrev;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _navButton(Icons.chevron_left, onPrev),
+        Expanded(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+        _navButton(Icons.chevron_right, onNext),
+      ],
+    );
+  }
+
+  Widget _navButton(IconData icon, VoidCallback? onTap) {
+    return Opacity(
+      opacity: onTap != null ? 1.0 : 0.25,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(8),
+            border:
+                Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Icon(icon, color: Colors.white70, size: 16),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Period data computation ──────────────────────────────────────────────────
 
 class _PeriodData {
@@ -823,8 +935,11 @@ class _PeriodData {
   });
 
   factory _PeriodData.compute(
-      List<TransactionEntity> all, List<CategoryEntity> allCategories, _Period period) {
-    final now = DateTime.now();
+      List<TransactionEntity> all,
+      List<CategoryEntity> allCategories,
+      _Period period,
+      DateTime selectedDate) {
+    final now = selectedDate;
     List<TransactionEntity> filtered;
     List<String> labels;
     List<double> values;
