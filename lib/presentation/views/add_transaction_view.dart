@@ -11,9 +11,10 @@ import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/widgets/bank_logo.dart';
 
 class AddTransactionView extends ConsumerStatefulWidget {
-  const AddTransactionView({super.key, this.existing});
+  const AddTransactionView({super.key, this.existing, this.initialDate});
 
   final TransactionEntity? existing;
+  final DateTime? initialDate;
 
   @override
   ConsumerState<AddTransactionView> createState() => _AddTransactionViewState();
@@ -41,6 +42,9 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialDate != null) {
+      _selectedDate = widget.initialDate!;
+    }
     if (widget.existing != null) {
       final e = widget.existing!;
       _titleController.text = e.title;
