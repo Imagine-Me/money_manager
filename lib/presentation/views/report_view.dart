@@ -15,7 +15,6 @@ import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
 // ─── Period enum ──────────────────────────────────────────────────────────────
 
 enum _Period { day, week, month, year }
-enum _CompareMode { prevMonth, lastYear }
 
 // ─── View ─────────────────────────────────────────────────────────────────────
 
@@ -29,7 +28,9 @@ class ReportView extends ConsumerStatefulWidget {
 class _ReportViewState extends ConsumerState<ReportView> {
   _Period _period = _Period.month;
   DateTime _selectedDate = DateTime.now();
-  _CompareMode _compareMode = _CompareMode.prevMonth;
+  // default compare target = one month before _selectedDate
+  DateTime _compareDate = DateTime(
+      DateTime.now().year, DateTime.now().month - 1, 1);
   bool _showSubcategories = false;
 
   void _goBack() {
@@ -37,16 +38,22 @@ class _ReportViewState extends ConsumerState<ReportView> {
       switch (_period) {
         case _Period.day:
           _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+          _compareDate = _selectedDate.subtract(const Duration(days: 1));
           break;
         case _Period.week:
           _selectedDate = _selectedDate.subtract(const Duration(days: 7));
+          _compareDate = _selectedDate.subtract(const Duration(days: 7));
           break;
         case _Period.month:
-          _selectedDate =
+          final prevSel =
               DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
+          _selectedDate = prevSel;
+          _compareDate =
+              DateTime(prevSel.year, prevSel.month - 1, 1);
           break;
         case _Period.year:
           _selectedDate = DateTime(_selectedDate.year - 1);
+          _compareDate = DateTime(_selectedDate.year - 1);
           break;
       }
     });
@@ -57,16 +64,22 @@ class _ReportViewState extends ConsumerState<ReportView> {
       switch (_period) {
         case _Period.day:
           _selectedDate = _selectedDate.add(const Duration(days: 1));
+          _compareDate = _selectedDate.subtract(const Duration(days: 1));
           break;
         case _Period.week:
           _selectedDate = _selectedDate.add(const Duration(days: 7));
+          _compareDate = _selectedDate.subtract(const Duration(days: 7));
           break;
         case _Period.month:
-          _selectedDate =
+          final nextSel =
               DateTime(_selectedDate.year, _selectedDate.month + 1, 1);
+          _selectedDate = nextSel;
+          _compareDate =
+              DateTime(nextSel.year, nextSel.month - 1, 1);
           break;
         case _Period.year:
           _selectedDate = DateTime(_selectedDate.year + 1);
+          _compareDate = DateTime(_selectedDate.year - 1);
           break;
       }
     });
@@ -126,8 +139,26 @@ class _ReportViewState extends ConsumerState<ReportView> {
                   child: _PeriodSelector(
                     selected: _period,
                     onChanged: (p) => setState(() {
+                      final now = DateTime.now();
                       _period = p;
-                      _selectedDate = DateTime.now();
+                      _selectedDate = now;
+                      switch (p) {
+                        case _Period.day:
+                          _compareDate =
+                              now.subtract(const Duration(days: 1));
+                          break;
+                        case _Period.week:
+                          _compareDate =
+                              now.subtract(const Duration(days: 7));
+                          break;
+                        case _Period.month:
+                          _compareDate =
+                              DateTime(now.year, now.month - 1, 1);
+                          break;
+                        case _Period.year:
+                          _compareDate = DateTime(now.year - 1);
+                          break;
+                      }
                     }),
                   ),
                 ),
@@ -235,30 +266,22 @@ class _ReportViewState extends ConsumerState<ReportView> {
                       const SizedBox(height: 12),
                     ],
 
-                    // ─── Spending comparison (month only) ─────────────────
-                    if (_period == _Period.month) ...[
-                      _SpendingComparisonCard(
-                        current: data,
-                        compare: _PeriodData.compute(
-                          allTx,
-                          allCategories,
-                          _Period.month,
-                          _compareMode == _CompareMode.prevMonth
-                              ? DateTime(
-                                  _selectedDate.year,
-                                  _selectedDate.month - 1,
-                                  1)
-                              : DateTime(
-                                  _selectedDate.year - 1,
-                                  _selectedDate.month,
-                                  1),
-                        ),
-                        compareMode: _compareMode,
-                        onCompareModeChanged: (m) =>
-                            setState(() => _compareMode = m),
+                    // ─── Spending comparison ──────────────────────────────
+                    _SpendingComparisonCard(
+                      current: data,
+                      currentDate: _selectedDate,
+                      period: _period,
+                      compare: _PeriodData.compute(
+                        allTx,
+                        allCategories,
+                        _period,
+                        _compareDate,
                       ),
-                      const SizedBox(height: 12),
-                    ],
+                      compareDate: _compareDate,
+                      onCompareDateChanged: (d) =>
+                          setState(() => _compareDate = d),
+                    ),
+                    const SizedBox(height: 12),
 
                     // ─── Transactions ─────────────────────────────────────
                     BentoCard(
@@ -935,15 +958,92 @@ class _DateNavigator extends StatelessWidget {
 class _SpendingComparisonCard extends StatelessWidget {
   const _SpendingComparisonCard({
     required this.current,
+    required this.currentDate,
+    required this.period,
     required this.compare,
-    required this.compareMode,
-    required this.onCompareModeChanged,
+    required this.compareDate,
+    required this.onCompareDateChanged,
   });
 
   final _PeriodData current;
+  final DateTime currentDate;
+  final _Period period;
   final _PeriodData compare;
-  final _CompareMode compareMode;
-  final ValueChanged<_CompareMode> onCompareModeChanged;
+  final DateTime compareDate;
+  final ValueChanged<DateTime> onCompareDateChanged;
+
+  String _chipLabel() {
+    switch (period) {
+      case _Period.day:
+        return DateFormat('d MMM yyyy').format(compareDate);
+      case _Period.week:
+        final ws = compareDate
+            .subtract(Duration(days: compareDate.weekday - 1));
+        final we = ws.add(const Duration(days: 6));
+        return '${DateFormat('d MMM').format(ws)}–${DateFormat('d MMM').format(we)}';
+      case _Period.month:
+        return DateFormat('MMM yyyy').format(compareDate);
+      case _Period.year:
+        return compareDate.year.toString();
+    }
+  }
+
+  Future<void> _openPicker(
+      BuildContext context, VoidCallback Function(DateTime) apply) async {
+    switch (period) {
+      case _Period.day:
+        final selDay = DateTime(
+            currentDate.year, currentDate.month, currentDate.day);
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: compareDate,
+          firstDate: DateTime(2000),
+          lastDate: selDay.subtract(const Duration(days: 1)),
+        );
+        if (picked != null) onCompareDateChanged(picked);
+        break;
+      case _Period.week:
+        final selDay = DateTime(
+            currentDate.year, currentDate.month, currentDate.day);
+        final thisWeekMon =
+            selDay.subtract(Duration(days: selDay.weekday - 1));
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: compareDate,
+          firstDate: DateTime(2000),
+          lastDate: thisWeekMon.subtract(const Duration(days: 1)),
+          helpText: 'Pick any day in the target week',
+        );
+        if (picked != null) {
+          final mon =
+              picked.subtract(Duration(days: picked.weekday - 1));
+          onCompareDateChanged(mon);
+        }
+        break;
+      case _Period.month:
+        if (!context.mounted) break;
+        final picked = await showDialog<DateTime>(
+          context: context,
+          builder: (_) => _MonthPickerDialog(
+            initial: compareDate,
+            currentDate: currentDate,
+          ),
+        );
+        if (picked != null) onCompareDateChanged(picked);
+        break;
+      case _Period.year:
+        if (!context.mounted) break;
+        final picked = await showDialog<int>(
+          context: context,
+          builder: (_) => _YearPickerDialog(
+            initial: compareDate.year,
+            currentYear: currentDate.year,
+          ),
+        );
+        if (picked != null) onCompareDateChanged(DateTime(picked));
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -964,9 +1064,34 @@ class _SpendingComparisonCard extends StatelessWidget {
             children: [
               _cardLabel('SPENDING COMPARISON'),
               const Spacer(),
-              _CompareModeToggle(
-                mode: compareMode,
-                onChanged: onCompareModeChanged,
+              GestureDetector(
+                onTap: () => _openPicker(context, (_) => () {}),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _chipLabel(),
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      const Icon(Icons.expand_more_rounded,
+                          color: AppTheme.primaryColor, size: 13),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -1158,51 +1283,231 @@ class _DeltaChip extends StatelessWidget {
   }
 }
 
-class _CompareModeToggle extends StatelessWidget {
-  const _CompareModeToggle({required this.mode, required this.onChanged});
+// ─── Year picker dialog ───────────────────────────────────────────────────────
 
-  final _CompareMode mode;
-  final ValueChanged<_CompareMode> onChanged;
+class _YearPickerDialog extends StatelessWidget {
+  const _YearPickerDialog({
+    required this.initial,
+    required this.currentYear,
+  });
+
+  final int initial;
+  /// The year currently viewed in reports — cannot be selected.
+  final int currentYear;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: AppTheme.bgColor,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _chip('Prev Month', _CompareMode.prevMonth),
-          _chip('Last Year', _CompareMode.lastYear),
-        ],
+    // Show up to 12 selectable years before currentYear
+    final years = List.generate(
+        12, (i) => currentYear - 1 - i);
+    return Dialog(
+      backgroundColor: AppTheme.cardColor,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'SELECT YEAR',
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 14),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                childAspectRatio: 1.6,
+                crossAxisSpacing: 6,
+                mainAxisSpacing: 6,
+              ),
+              itemCount: years.length,
+              itemBuilder: (_, i) {
+                final year = years[i];
+                final isSelected = year == initial;
+                return GestureDetector(
+                  onTap: () => Navigator.pop(context, year),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 130),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primaryColor
+                          : AppTheme.bgColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$year',
+                      style: TextStyle(
+                        color:
+                            isSelected ? Colors.white : Colors.white70,
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _chip(String label, _CompareMode m) {
-    final sel = mode == m;
-    return GestureDetector(
-      onTap: () => onChanged(m),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: sel
-              ? AppTheme.primaryColor.withValues(alpha: 0.2)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: sel ? AppTheme.primaryColor : Colors.white38,
-            fontSize: 10,
-            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-          ),
+// ─── Month picker dialog ──────────────────────────────────────────────────────
+
+class _MonthPickerDialog extends StatefulWidget {
+  const _MonthPickerDialog({
+    required this.initial,
+    required this.currentDate,
+  });
+
+  /// The month currently selected as comparison target.
+  final DateTime initial;
+  /// The month being viewed in reports — cannot be selected as compare target.
+  final DateTime currentDate;
+
+  @override
+  State<_MonthPickerDialog> createState() => _MonthPickerDialogState();
+}
+
+class _MonthPickerDialogState extends State<_MonthPickerDialog> {
+  late int _year;
+
+  @override
+  void initState() {
+    super.initState();
+    _year = widget.initial.year;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    return Dialog(
+      backgroundColor: AppTheme.cardColor,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Year row ───────────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () => setState(() => _year--),
+                  icon: const Icon(Icons.chevron_left,
+                      color: Colors.white70, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                Text(
+                  '$_year',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                IconButton(
+                  onPressed: _year >= now.year
+                      ? null
+                      : () => setState(() => _year++),
+                  icon: Icon(
+                    Icons.chevron_right,
+                    color:
+                        _year >= now.year ? Colors.white24 : Colors.white70,
+                    size: 20,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // ── Month grid ─────────────────────────────────────────
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate:
+                  const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                childAspectRatio: 1.7,
+                crossAxisSpacing: 6,
+                mainAxisSpacing: 6,
+              ),
+              itemCount: 12,
+              itemBuilder: (_, i) {
+                final month = i + 1;
+                final dt = DateTime(_year, month, 1);
+                final isFuture =
+                    dt.isAfter(DateTime(now.year, now.month, 1));
+                final isSameAsCurrent =
+                    dt.year == widget.currentDate.year &&
+                        dt.month == widget.currentDate.month;
+                final isSelected = dt.year == widget.initial.year &&
+                    dt.month == widget.initial.month;
+                final disabled = isFuture || isSameAsCurrent;
+
+                return GestureDetector(
+                  onTap: disabled
+                      ? null
+                      : () => Navigator.pop(context, dt),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 130),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppTheme.primaryColor
+                          : disabled
+                              ? Colors.transparent
+                              : AppTheme.bgColor,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : Colors.white
+                                .withValues(alpha: disabled ? 0.04 : 0.08),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      DateFormat('MMM').format(dt),
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : disabled
+                                ? Colors.white24
+                                : Colors.white70,
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
