@@ -9,8 +9,10 @@ class PreferencesService {
   static const _keyCurrencyName = 'currency_name';
   static const _keyCurrencyLocale = 'currency_locale';
   static const _keySetupDone = 'setup_done';
+  static const _keyLoginDone = 'login_done';
   static const _keyInstalledDate = 'installed_date';
   static const _keyDismissedMissedDays = 'dismissed_missed_days';
+  static const _keyLastBackupDate = 'last_backup_date';
 
   late SharedPreferences _prefs;
 
@@ -34,6 +36,12 @@ class PreferencesService {
 
   bool get isSetupDone => _prefs.getBool(_keySetupDone) ?? false;
 
+  bool get loginDone => _prefs.getBool(_keyLoginDone) ?? false;
+
+  Future<void> saveLoginDone() async {
+    await _prefs.setBool(_keyLoginDone, true);
+  }
+
   /// The date the app was first launched (date-only, UTC-midnight equivalent).
   DateTime get installedDate {
     final raw = _prefs.getString(_keyInstalledDate);
@@ -54,6 +62,16 @@ class PreferencesService {
     current.add(key);
     await _prefs.setString(
         _keyDismissedMissedDays, jsonEncode(current.toList()));
+  }
+
+  DateTime? get lastBackupDate {
+    final raw = _prefs.getString(_keyLastBackupDate);
+    if (raw == null) return null;
+    return DateTime.parse(raw);
+  }
+
+  Future<void> setLastBackupDate(DateTime date) async {
+    await _prefs.setString(_keyLastBackupDate, date.toIso8601String());
   }
 
   Future<void> saveCurrency({

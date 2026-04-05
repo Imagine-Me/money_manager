@@ -6,7 +6,10 @@ import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/data/datasources/local/isar_service.dart';
 import 'package:money_manager/data/repositories/recurring_transaction_repository_impl.dart';
 import 'package:money_manager/presentation/views/home_shell.dart';
+import 'package:money_manager/presentation/views/login_view.dart';
 import 'package:money_manager/presentation/views/onboarding_view.dart';
+import 'package:money_manager/services/backup_service.dart';
+import 'package:money_manager/services/google_auth_service.dart';
 import 'package:money_manager/services/notification_service.dart';
 
 Future<void> main() async {
@@ -33,7 +36,24 @@ Future<void> main() async {
   await notifService.requestPermissions();
   await notifService.scheduleDailyReminder();
 
+  // Attempt silent sign-in and auto-backup in the background.
+  // This does not block app startup.
+  _tryAutoBackup();
+
   runApp(ProviderScope(child: VaultCashApp()));
+}
+
+/// Silently signs in (if previously authorised) and backs up data.
+/// Errors are silently swallowed so they never affect app startup.
+void _tryAutoBackup() {
+  GoogleAuthService.instance.signInSilently().then((user) async {
+    if (user == null) return;
+    try {
+      await BackupService.instance.backupToDrive();
+    } catch (_) {
+      // Auto-backup is best-effort; ignore failures.
+    }
+  }).catchError((_) {});
 }
 
 class VaultCashApp extends StatelessWidget {
@@ -41,12 +61,20 @@ class VaultCashApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSetup = PreferencesService.instance.isSetupDone;
+    final prefs = PreferencesService.instance;
+    final Widget home;
+    if (prefs.isSetupDone) {
+      home = const HomeShell();
+    } else if (prefs.loginDone) {
+      home = const OnboardingView();
+    } else {
+      home = const LoginView();
+    }
     return MaterialApp(
       title: 'VaultCash',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: isSetup ? const HomeShell() : const OnboardingView(),
+      home: home,
     );
   }
 }

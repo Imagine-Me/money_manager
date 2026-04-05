@@ -33,6 +33,7 @@ class IsarService {
       name: 'vaultcash',
     );
     await CategorySeeder.seed(_isar!);
+    await CategorySeeder.seedLoans(_isar!);
     return _isar!;
   }
 

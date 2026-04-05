@@ -4,6 +4,7 @@ import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/views/add_transaction_view.dart';
 import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
+import 'package:money_manager/services/backup_service.dart';
 
 class TransactionsView extends ConsumerWidget {
   const TransactionsView({super.key});
@@ -141,9 +142,12 @@ class TransactionsView extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 2),
                     child: TransactionListTile(
                       transaction: transactions[i],
-                      onDelete: () => ref
-                          .read(transactionRepositoryProvider)
-                          .delete(transactions[i].id),
+                      onDelete: () {
+                        ref
+                            .read(transactionRepositoryProvider)
+                            .delete(transactions[i].id);
+                        BackupService.instance.triggerAutoSync();
+                      },
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => AddTransactionView(

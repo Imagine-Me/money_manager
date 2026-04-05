@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:money_manager/core/services/preferences_service.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
-import 'package:money_manager/presentation/views/dashboard_view.dart';
+import 'package:money_manager/presentation/views/home_shell.dart';
+import 'package:money_manager/services/backup_service.dart';
+import 'package:money_manager/services/google_auth_service.dart';
 
 // ─── Currency data ────────────────────────────────────────────────────────────
 
@@ -67,6 +69,7 @@ class _OnboardingViewState extends State<OnboardingView> {
   int _selectedIndex = 0;
   String _search = '';
   bool _saving = false;
+  bool _restoring = false;
   final _searchController = TextEditingController();
 
   List<_Currency> get _filtered {
@@ -88,8 +91,44 @@ class _OnboardingViewState extends State<OnboardingView> {
     );
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DashboardView()),
+      MaterialPageRoute(builder: (_) => const HomeShell()),
     );
+  }
+
+  Future<void> _restoreFromDrive() async {
+    setState(() => _restoring = true);
+    try {
+      final user = await GoogleAuthService.instance.signIn();
+      if (user == null) {
+        setState(() => _restoring = false);
+        return;
+      }
+      final found = await BackupService.instance.restoreFromDrive();
+      if (!mounted) return;
+      if (found) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeShell()),
+        );
+      } else {
+        setState(() => _restoring = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No backup found on Google Drive.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _restoring = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Restore failed: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -289,12 +328,14 @@ class _OnboardingViewState extends State<OnboardingView> {
 
             // ── Confirm button ─────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: (_saving || filtered.isEmpty) ? null : _confirm,
+                  onPressed: (_saving || _restoring || filtered.isEmpty)
+                      ? null
+                      : _confirm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -325,6 +366,39 @@ class _OnboardingViewState extends State<OnboardingView> {
                             ],
                           ],
                         ),
+                ),
+              ),
+            ),
+
+            // ── Restore from Drive ─────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: (_saving || _restoring) ? null : _restoreFromDrive,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white60,
+                    side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.15)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  icon: _restoring
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              color: Colors.white38, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_rounded, size: 18),
+                  label: Text(
+                    _restoring
+                        ? 'Restoring…'
+                        : 'Restore from Google Drive',
+                    style: const TextStyle(fontSize: 14),
+                  ),
                 ),
               ),
             ),

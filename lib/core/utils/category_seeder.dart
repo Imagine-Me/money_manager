@@ -40,6 +40,9 @@ class CategorySeeder {
       final billsId = await isar.categoryModels.put(
         _parent('Bills & Fees', const Color(0xFF8D6E63), Icons.receipt_long_rounded, 'burn'),
       );
+      final loansId = await isar.categoryModels.put(
+        _parent('Loans & EMI', const Color(0xFFFF7043), Icons.account_balance_wallet_rounded, 'burn'),
+      );
 
       // ── STORE parents ─────────────────────────────────────────────────────
       await isar.categoryModels.put(
@@ -141,6 +144,18 @@ class CategorySeeder {
         ('App Subscriptions', Icons.subscriptions_rounded),
       ]);
 
+      // Loans & EMI
+      final lc = const Color(0xFFFF7043);
+      await _subs(isar, loansId, lc, 'burn', [
+        ('Car Loan', Icons.directions_car_rounded),
+        ('Bike Loan', Icons.two_wheeler_rounded),
+        ('Personal Loan', Icons.person_rounded),
+        ('Home Loan', Icons.home_rounded),
+        ('Credit Card EMI', Icons.credit_card_rounded),
+        ('Education Loan', Icons.school_rounded),
+        ('Gold Loan', Icons.monetization_on_rounded),
+      ]);
+
       // ── STORE subcategories ───────────────────────────────────────────────
 
       // Freelance
@@ -159,6 +174,34 @@ class CategorySeeder {
         ('Crypto', Icons.currency_exchange_rounded),
         ('Mutual Funds', Icons.pie_chart_rounded),
         ('Real Estate', Icons.domain_rounded),
+      ]);
+    });
+  }
+
+  // ── Migration: add Loans & EMI for existing users ─────────────────────────
+
+  /// Adds the Loans & EMI category if it doesn't already exist.
+  /// Safe to call on every startup — no-ops if category is present.
+  static Future<void> seedLoans(Isar isar) async {
+    final existing = await isar.categoryModels
+        .filter()
+        .nameEqualTo('Loans & EMI')
+        .findFirst();
+    if (existing != null) return;
+
+    await isar.writeTxn(() async {
+      final loansId = await isar.categoryModels.put(
+        _parent('Loans & EMI', const Color(0xFFFF7043), Icons.account_balance_wallet_rounded, 'burn'),
+      );
+      const lc = Color(0xFFFF7043);
+      await _subs(isar, loansId, lc, 'burn', [
+        ('Car Loan', Icons.directions_car_rounded),
+        ('Bike Loan', Icons.two_wheeler_rounded),
+        ('Personal Loan', Icons.person_rounded),
+        ('Home Loan', Icons.home_rounded),
+        ('Credit Card EMI', Icons.credit_card_rounded),
+        ('Education Loan', Icons.school_rounded),
+        ('Gold Loan', Icons.monetization_on_rounded),
       ]);
     });
   }

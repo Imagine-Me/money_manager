@@ -7,6 +7,7 @@ import 'package:money_manager/presentation/views/add_transaction_view.dart';
 import 'package:money_manager/presentation/views/analytics_view.dart';
 import 'package:money_manager/presentation/views/dashboard_view.dart';
 import 'package:money_manager/presentation/views/report_view.dart';
+import 'package:money_manager/presentation/views/settings_view.dart';
 import 'package:money_manager/presentation/widgets/missed_days_sheet.dart';
 
 class HomeShell extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     ReportView(),
     AnalyticsView(),
     AccountsView(),
+    SettingsView(),
   ];
 
   @override
@@ -100,6 +102,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_rounded),
             label: 'Accounts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_rounded),
+            label: 'Settings',
           ),
         ],
       ),

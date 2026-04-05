@@ -9,6 +9,7 @@ import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/domain/entities/recurring_transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/widgets/bank_logo.dart';
+import 'package:money_manager/services/backup_service.dart';
 
 class AddTransactionView extends ConsumerStatefulWidget {
   const AddTransactionView({super.key, this.existing, this.initialDate});
@@ -403,6 +404,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
       }
 
       if (mounted) {
+        BackupService.instance.triggerAutoSync();
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
