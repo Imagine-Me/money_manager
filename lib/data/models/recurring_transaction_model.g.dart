@@ -28,38 +28,48 @@ const RecurringTransactionModelSchema = CollectionSchema(
       name: r'amount',
       type: IsarType.double,
     ),
-    r'frequency': PropertySchema(
+    r'endDate': PropertySchema(
       id: 2,
+      name: r'endDate',
+      type: IsarType.dateTime,
+    ),
+    r'frequency': PropertySchema(
+      id: 3,
       name: r'frequency',
       type: IsarType.string,
     ),
     r'lastExecutedDate': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'lastExecutedDate',
       type: IsarType.dateTime,
     ),
     r'note': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'note',
       type: IsarType.string,
     ),
     r'recurDay': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'recurDay',
       type: IsarType.long,
     ),
     r'recurMonth': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'recurMonth',
       type: IsarType.long,
     ),
+    r'startDate': PropertySchema(
+      id: 8,
+      name: r'startDate',
+      type: IsarType.dateTime,
+    ),
     r'title': PropertySchema(
-      id: 7,
+      id: 9,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'type',
       type: IsarType.string,
     )
@@ -106,13 +116,15 @@ void _recurringTransactionModelSerialize(
 ) {
   writer.writeLong(offsets[0], object.accountId);
   writer.writeDouble(offsets[1], object.amount);
-  writer.writeString(offsets[2], object.frequency);
-  writer.writeDateTime(offsets[3], object.lastExecutedDate);
-  writer.writeString(offsets[4], object.note);
-  writer.writeLong(offsets[5], object.recurDay);
-  writer.writeLong(offsets[6], object.recurMonth);
-  writer.writeString(offsets[7], object.title);
-  writer.writeString(offsets[8], object.type);
+  writer.writeDateTime(offsets[2], object.endDate);
+  writer.writeString(offsets[3], object.frequency);
+  writer.writeDateTime(offsets[4], object.lastExecutedDate);
+  writer.writeString(offsets[5], object.note);
+  writer.writeLong(offsets[6], object.recurDay);
+  writer.writeLong(offsets[7], object.recurMonth);
+  writer.writeDateTime(offsets[8], object.startDate);
+  writer.writeString(offsets[9], object.title);
+  writer.writeString(offsets[10], object.type);
 }
 
 RecurringTransactionModel _recurringTransactionModelDeserialize(
@@ -124,14 +136,16 @@ RecurringTransactionModel _recurringTransactionModelDeserialize(
   final object = RecurringTransactionModel();
   object.accountId = reader.readLongOrNull(offsets[0]);
   object.amount = reader.readDouble(offsets[1]);
-  object.frequency = reader.readString(offsets[2]);
+  object.endDate = reader.readDateTimeOrNull(offsets[2]);
+  object.frequency = reader.readString(offsets[3]);
   object.id = id;
-  object.lastExecutedDate = reader.readDateTimeOrNull(offsets[3]);
-  object.note = reader.readString(offsets[4]);
-  object.recurDay = reader.readLong(offsets[5]);
-  object.recurMonth = reader.readLong(offsets[6]);
-  object.title = reader.readString(offsets[7]);
-  object.type = reader.readString(offsets[8]);
+  object.lastExecutedDate = reader.readDateTimeOrNull(offsets[4]);
+  object.note = reader.readString(offsets[5]);
+  object.recurDay = reader.readLong(offsets[6]);
+  object.recurMonth = reader.readLong(offsets[7]);
+  object.startDate = reader.readDateTimeOrNull(offsets[8]);
+  object.title = reader.readString(offsets[9]);
+  object.type = reader.readString(offsets[10]);
   return object;
 }
 
@@ -147,18 +161,22 @@ P _recurringTransactionModelDeserializeProp<P>(
     case 1:
       return (reader.readDouble(offset)) as P;
     case 2:
-      return (reader.readString(offset)) as P;
-    case 3:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 4:
+    case 3:
       return (reader.readString(offset)) as P;
+    case 4:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 6:
       return (reader.readLong(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 8:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -400,6 +418,80 @@ extension RecurringTransactionModelQueryFilter on QueryBuilder<
         upper: upper,
         includeUpper: includeUpper,
         epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> endDateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'endDate',
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> endDateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'endDate',
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> endDateEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'endDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> endDateGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'endDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> endDateLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'endDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> endDateBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'endDate',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -923,6 +1015,80 @@ extension RecurringTransactionModelQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> startDateIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'startDate',
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> startDateIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'startDate',
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> startDateEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'startDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> startDateGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'startDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> startDateLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'startDate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterFilterCondition> startDateBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'startDate',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
       QAfterFilterCondition> titleEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1250,6 +1416,20 @@ extension RecurringTransactionModelQuerySortBy on QueryBuilder<
   }
 
   QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> sortByEndDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'endDate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> sortByEndDateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'endDate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
       QAfterSortBy> sortByFrequency() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'frequency', Sort.asc);
@@ -1320,6 +1500,20 @@ extension RecurringTransactionModelQuerySortBy on QueryBuilder<
   }
 
   QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> sortByStartDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'startDate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> sortByStartDateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'startDate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
       QAfterSortBy> sortByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
@@ -1375,6 +1569,20 @@ extension RecurringTransactionModelQuerySortThenBy on QueryBuilder<
       QAfterSortBy> thenByAmountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'amount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> thenByEndDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'endDate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> thenByEndDateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'endDate', Sort.desc);
     });
   }
 
@@ -1463,6 +1671,20 @@ extension RecurringTransactionModelQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> thenByStartDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'startDate', Sort.asc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
+      QAfterSortBy> thenByStartDateDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'startDate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel,
       QAfterSortBy> thenByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
@@ -1508,6 +1730,13 @@ extension RecurringTransactionModelQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<RecurringTransactionModel, RecurringTransactionModel, QDistinct>
+      distinctByEndDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'endDate');
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel, QDistinct>
       distinctByFrequency({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'frequency', caseSensitive: caseSensitive);
@@ -1539,6 +1768,13 @@ extension RecurringTransactionModelQueryWhereDistinct on QueryBuilder<
       distinctByRecurMonth() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'recurMonth');
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, RecurringTransactionModel, QDistinct>
+      distinctByStartDate() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'startDate');
     });
   }
 
@@ -1579,6 +1815,13 @@ extension RecurringTransactionModelQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<RecurringTransactionModel, DateTime?, QQueryOperations>
+      endDateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'endDate');
+    });
+  }
+
   QueryBuilder<RecurringTransactionModel, String, QQueryOperations>
       frequencyProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -1611,6 +1854,13 @@ extension RecurringTransactionModelQueryProperty on QueryBuilder<
       recurMonthProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'recurMonth');
+    });
+  }
+
+  QueryBuilder<RecurringTransactionModel, DateTime?, QQueryOperations>
+      startDateProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'startDate');
     });
   }
 

@@ -5,6 +5,7 @@ import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/views/accounts_view.dart';
 import 'package:money_manager/presentation/views/add_transaction_view.dart';
 import 'package:money_manager/presentation/views/dashboard_view.dart';
+import 'package:money_manager/presentation/views/recurring_view.dart';
 import 'package:money_manager/presentation/views/report_view.dart';
 import 'package:money_manager/presentation/views/settings_view.dart';
 import 'package:money_manager/presentation/widgets/missed_days_sheet.dart';
@@ -24,6 +25,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     DashboardView(),
     ReportView(),
     AccountsView(),
+    RecurringView(),
     SettingsView(),
   ];
 
@@ -96,6 +98,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_rounded),
             label: 'Accounts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.repeat_rounded),
+            label: 'Recurring',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_rounded),

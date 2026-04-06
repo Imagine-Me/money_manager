@@ -44,6 +44,8 @@ class RecurringTransactionRepositoryImpl
       recurMonth: m.recurMonth,
       accountId: m.accountId,
       lastExecutedDate: m.lastExecutedDate,
+      startDate: m.startDate,
+      endDate: m.endDate,
       category: cat,
     );
   }
@@ -75,7 +77,9 @@ class RecurringTransactionRepositoryImpl
         ..recurDay = entity.recurDay
         ..recurMonth = entity.recurMonth
         ..accountId = entity.accountId
-        ..lastExecutedDate = entity.lastExecutedDate;
+        ..lastExecutedDate = entity.lastExecutedDate
+        ..startDate = entity.startDate
+        ..endDate = entity.endDate;
 
       if (entity.id > 0) model.id = entity.id;
 

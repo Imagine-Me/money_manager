@@ -22,6 +22,8 @@ class RecurringTransactionModel {
 
   int? accountId;
   DateTime? lastExecutedDate;
+  DateTime? startDate;
+  DateTime? endDate;
 
   final category = IsarLink<CategoryModel>();
 }

@@ -1600,7 +1600,7 @@ class _AccountTransactionsSheet extends ConsumerWidget {
                     controller: controller,
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, index) =>
                         const Divider(color: Colors.white10, height: 1),
                     itemBuilder: (_, i) =>
                         TransactionListTile(transaction: filtered[i]),

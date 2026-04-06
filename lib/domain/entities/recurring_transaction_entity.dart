@@ -18,6 +18,8 @@ class RecurringTransactionEntity {
 
   final int? accountId;
   final DateTime? lastExecutedDate;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final CategoryEntity? category;
 
   const RecurringTransactionEntity({
@@ -31,6 +33,8 @@ class RecurringTransactionEntity {
     this.recurMonth = 1,
     this.accountId,
     this.lastExecutedDate,
+    this.startDate,
+    this.endDate,
     this.category,
   });
 
@@ -39,6 +43,18 @@ class RecurringTransactionEntity {
   bool isDueToday() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+
+    // Not yet started.
+    if (startDate != null) {
+      final start = DateTime(startDate!.year, startDate!.month, startDate!.day);
+      if (today.isBefore(start)) return false;
+    }
+
+    // Already expired.
+    if (endDate != null) {
+      final end = DateTime(endDate!.year, endDate!.month, endDate!.day);
+      if (today.isAfter(end)) return false;
+    }
 
     if (lastExecutedDate != null) {
       final last = DateTime(
