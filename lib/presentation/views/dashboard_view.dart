@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/core/utils/currency_formatter.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
-import 'package:money_manager/presentation/views/analytics_view.dart';
+import 'package:money_manager/presentation/views/report_view.dart';
 import 'package:money_manager/presentation/views/transactions_view.dart';
 import 'package:money_manager/presentation/widgets/bento_card.dart';
 import 'package:money_manager/presentation/widgets/spending_pie_chart.dart';
@@ -142,8 +142,8 @@ class DashboardView extends ConsumerWidget {
                                   children: [
                                     _SectionHeader(
                                         title: 'SPEND BREAKDOWN',
-                                        action: 'Analytics',
-                                        onTap: () => _goToAnalytics(context)),
+                                      action: 'Report',
+                                      onTap: () => _goToReports(context)),
                                     const SizedBox(height: 16),
                                     SpendingPieChart(
                                       data: analytics.monthlyBurnParentBreakdown,
@@ -261,9 +261,9 @@ class DashboardView extends ConsumerWidget {
     );
   }
 
-  void _goToAnalytics(BuildContext context) {
+  void _goToReports(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AnalyticsView()),
+      MaterialPageRoute(builder: (_) => const ReportView()),
     );
   }
 }

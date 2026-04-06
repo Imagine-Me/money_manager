@@ -4,7 +4,6 @@ import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/views/accounts_view.dart';
 import 'package:money_manager/presentation/views/add_transaction_view.dart';
-import 'package:money_manager/presentation/views/analytics_view.dart';
 import 'package:money_manager/presentation/views/dashboard_view.dart';
 import 'package:money_manager/presentation/views/report_view.dart';
 import 'package:money_manager/presentation/views/settings_view.dart';
@@ -24,7 +23,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   static const _pages = <Widget>[
     DashboardView(),
     ReportView(),
-    AnalyticsView(),
     AccountsView(),
     SettingsView(),
   ];
@@ -94,10 +92,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.assessment_rounded),
             label: 'Reports',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_rounded),
-            label: 'Analytics',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.account_balance_rounded),

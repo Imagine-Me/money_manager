@@ -31,7 +31,30 @@ class TransactionListTile extends StatelessWidget {
       background: _DeleteBackground(),
       confirmDismiss: (_) async {
         if (onDelete == null) return false;
-        return true;
+        final shouldDelete = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Delete transaction?'),
+            content: const Text(
+              'This transaction will be permanently deleted.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.burnColor,
+                ),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+
+        return shouldDelete ?? false;
       },
       onDismissed: (_) => onDelete?.call(),
       child: InkWell(

@@ -14,7 +14,9 @@ import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
 
 // ─── Period enum ──────────────────────────────────────────────────────────────
 
-enum _Period { day, week, month, year }
+enum _Period { month, year, overall }
+
+enum _TypeTab { burn, store }
 
 // ─── View ─────────────────────────────────────────────────────────────────────
 
@@ -27,23 +29,22 @@ class ReportView extends ConsumerStatefulWidget {
 
 class _ReportViewState extends ConsumerState<ReportView> {
   _Period _period = _Period.month;
+  _TypeTab _selectedTab = _TypeTab.burn;
   DateTime _selectedDate = DateTime.now();
   // default compare target = one month before _selectedDate
   DateTime _compareDate = DateTime(
       DateTime.now().year, DateTime.now().month - 1, 1);
   bool _showSubcategories = false;
+  CategoryEntity? _selectedCategoryFilter;
+
+  TransactionType get _selectedType =>
+      _selectedTab == _TypeTab.burn
+          ? TransactionType.burn
+          : TransactionType.store;
 
   void _goBack() {
     setState(() {
       switch (_period) {
-        case _Period.day:
-          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-          _compareDate = _selectedDate.subtract(const Duration(days: 1));
-          break;
-        case _Period.week:
-          _selectedDate = _selectedDate.subtract(const Duration(days: 7));
-          _compareDate = _selectedDate.subtract(const Duration(days: 7));
-          break;
         case _Period.month:
           final prevSel =
               DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
@@ -55,21 +56,16 @@ class _ReportViewState extends ConsumerState<ReportView> {
           _selectedDate = DateTime(_selectedDate.year - 1);
           _compareDate = DateTime(_selectedDate.year - 1);
           break;
+        case _Period.overall:
+          break;
       }
+      _selectedCategoryFilter = null;
     });
   }
 
   void _goForward() {
     setState(() {
       switch (_period) {
-        case _Period.day:
-          _selectedDate = _selectedDate.add(const Duration(days: 1));
-          _compareDate = _selectedDate.subtract(const Duration(days: 1));
-          break;
-        case _Period.week:
-          _selectedDate = _selectedDate.add(const Duration(days: 7));
-          _compareDate = _selectedDate.subtract(const Duration(days: 7));
-          break;
         case _Period.month:
           final nextSel =
               DateTime(_selectedDate.year, _selectedDate.month + 1, 1);
@@ -81,7 +77,10 @@ class _ReportViewState extends ConsumerState<ReportView> {
           _selectedDate = DateTime(_selectedDate.year + 1);
           _compareDate = DateTime(_selectedDate.year - 1);
           break;
+        case _Period.overall:
+          break;
       }
+      _selectedCategoryFilter = null;
     });
   }
 
@@ -92,99 +91,134 @@ class _ReportViewState extends ConsumerState<ReportView> {
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
-      appBar: AppBar(
-        title: const Text('Report'),
-      ),
-      body: txAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryColor),
-        ),
-        error: (e, _) => Center(
-          child: Text(e.toString(),
-              style: const TextStyle(color: AppTheme.burnColor)),
-        ),
-        data: (allTx) {
+      body: SafeArea(
+        child: txAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppTheme.primaryColor),
+          ),
+          error: (e, _) => Center(
+            child: Text(e.toString(),
+                style: const TextStyle(color: AppTheme.burnColor)),
+          ),
+          data: (allTx) {
           final allCategories = catAsync.valueOrNull ?? [];
           final now = DateTime.now();
-          final today = DateTime(now.year, now.month, now.day);
-          final selDay = DateTime(
-              _selectedDate.year, _selectedDate.month, _selectedDate.day);
-          final thisWeekMon =
-              today.subtract(Duration(days: today.weekday - 1));
-          final selWeekMon =
-              selDay.subtract(Duration(days: selDay.weekday - 1));
           final bool canGoNext = switch (_period) {
-            _Period.day => selDay.isBefore(today),
-            _Period.week => selWeekMon.isBefore(thisWeekMon),
             _Period.month => _selectedDate.year < now.year ||
                 (_selectedDate.year == now.year &&
                     _selectedDate.month < now.month),
             _Period.year => _selectedDate.year < now.year,
+            _Period.overall => false,
           };
           final data = _PeriodData.compute(
-              allTx, allCategories, _period, _selectedDate);
-          final burnBreakdown = _showSubcategories
-              ? data.burnBreakdown
-              : data.burnParentBreakdown;
-          final storeBreakdown = _showSubcategories
-              ? data.storeBreakdown
-              : data.storeParentBreakdown;
-          return CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // Period selector
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: _PeriodSelector(
-                    selected: _period,
-                    onChanged: (p) => setState(() {
-                      final now = DateTime.now();
-                      _period = p;
-                      _selectedDate = now;
-                      switch (p) {
-                        case _Period.day:
-                          _compareDate =
-                              now.subtract(const Duration(days: 1));
-                          break;
-                        case _Period.week:
-                          _compareDate =
-                              now.subtract(const Duration(days: 7));
-                          break;
-                        case _Period.month:
-                          _compareDate =
-                              DateTime(now.year, now.month - 1, 1);
-                          break;
-                        case _Period.year:
-                          _compareDate = DateTime(now.year - 1);
-                          break;
-                      }
-                    }),
+            allTx,
+            allCategories,
+            _period,
+            _selectedDate,
+            typeFilter: _selectedType,
+          );
+          final selectedBreakdown = _showSubcategories
+              ? data.breakdownFor(_selectedType)
+              : data.parentBreakdownFor(_selectedType);
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: _TypeSelector(
+                      selected: _selectedTab,
+                      onChanged: (tab) => setState(() {
+                        _selectedTab = tab;
+                        _selectedCategoryFilter = null;
+                      }),
+                    ),
                   ),
                 ),
-              ),
+
+                // Period selector
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _PeriodSelector(
+                      selected: _period,
+                      onChanged: (p) => setState(() {
+                        final now = DateTime.now();
+                        _period = p;
+                        _selectedDate = now;
+                        _selectedCategoryFilter = null;
+                        switch (p) {
+                          case _Period.month:
+                            _compareDate =
+                                DateTime(now.year, now.month - 1, 1);
+                            break;
+                          case _Period.year:
+                            _compareDate = DateTime(now.year - 1);
+                            break;
+                          case _Period.overall:
+                            _compareDate = DateTime(2000);
+                            break;
+                        }
+                      }),
+                    ),
+                  ),
+                ),
 
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     // Period navigator
-                    _DateNavigator(
-                      label: data.periodLabel,
-                      onPrev: _goBack,
-                      onNext: canGoNext ? _goForward : null,
-                    ),
-                    const SizedBox(height: 12),
+                    if (_period != _Period.overall) ...[
+                      _DateNavigator(
+                        label: data.periodLabel,
+                        onPrev: _goBack,
+                        onNext: canGoNext ? _goForward : null,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     // ─── Hero summary ────────────────────────────────────
-                    _SummaryCard(data: data),
+                    _SummaryCard(
+                      data: data,
+                      type: _selectedType,
+                      deltaAmount: () {
+                        if (_period == _Period.month) {
+                          final sel = _selectedDate;
+                          final day = sel.day;
+                          final curStart = DateTime(sel.year, sel.month, 1);
+                          final curEnd = DateTime(sel.year, sel.month, day, 23, 59, 59, 999);
+                          final prevStart = DateTime(sel.year, sel.month - 1, 1);
+                          final prevDays = DateTime(prevStart.year, prevStart.month + 1, 0).day;
+                          final prevDay = day <= prevDays ? day : prevDays;
+                          final prevEnd = DateTime(prevStart.year, prevStart.month, prevDay, 23, 59, 59, 999);
+                          double sum(DateTime s, DateTime e) => allTx
+                              .where((t) => t.type == _selectedType && !t.date.isBefore(s) && !t.date.isAfter(e))
+                              .fold(0.0, (a, t) => a + t.amount);
+                          return sum(curStart, curEnd) - sum(prevStart, prevEnd);
+                        } else if (_period == _Period.year) {
+                          final sel = _selectedDate;
+                          final curStart = DateTime(sel.year, 1, 1);
+                          final curEnd = DateTime(sel.year, sel.month + 1, 0, 23, 59, 59, 999);
+                          final prevStart = DateTime(sel.year - 1, 1, 1);
+                          final prevEnd = DateTime(sel.year - 1, sel.month + 1, 0, 23, 59, 59, 999);
+                          double sum(DateTime s, DateTime e) => allTx
+                              .where((t) => t.type == _selectedType && !t.date.isBefore(s) && !t.date.isAfter(e))
+                              .fold(0.0, (a, t) => a + t.amount);
+                          return sum(curStart, curEnd) - sum(prevStart, prevEnd);
+                        }
+                        return null;
+                      }(),
+                    ),
                     const SizedBox(height: 12),
 
                     // ─── Category toggle ─────────────────────────────────
                     _DrillToggle(
                       showSubcategories: _showSubcategories,
-                      onChanged: (v) =>
-                          setState(() => _showSubcategories = v),
+                      onChanged: (v) => setState(() {
+                        _showSubcategories = v;
+                        _selectedCategoryFilter = null;
+                      }),
                     ),
                     const SizedBox(height: 12),
 
@@ -211,14 +245,16 @@ class _ReportViewState extends ConsumerState<ReportView> {
                     ],
 
                     // ─── Where money went ────────────────────────────────
-                    if (burnBreakdown.isNotEmpty) ...[
+                    if (selectedBreakdown.isNotEmpty) ...[
                       BentoCard(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _cardLabel('WHERE MONEY WENT'),
+                            _cardLabel(_selectedType == TransactionType.burn
+                                ? 'WHERE MONEY WENT'
+                                : 'WHERE MONEY STORED'),
                             const SizedBox(height: 20),
-                            SpendingPieChart(data: burnBreakdown),
+                            SpendingPieChart(data: selectedBreakdown),
                           ],
                         ),
                       ),
@@ -231,33 +267,14 @@ class _ReportViewState extends ConsumerState<ReportView> {
                           children: [
                             _cardLabel('CATEGORY BREAKDOWN'),
                             const SizedBox(height: 16),
-                            ...burnBreakdown.entries.map(
+                            ...selectedBreakdown.entries.map(
                               (e) => _CategoryBar(
                                 category: e.key,
                                 amount: e.value,
-                                total: data.totalBurn,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // ─── Store breakdown ─────────────────────────────────
-                    if (storeBreakdown.isNotEmpty) ...[
-                      BentoCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _cardLabel('STORE BREAKDOWN'),
-                            const SizedBox(height: 16),
-                            ...storeBreakdown.entries.map(
-                              (e) => _CategoryBar(
-                                category: e.key,
-                                amount: e.value,
-                                total: data.totalStore,
-                                color: AppTheme.storeColor,
+                                total: data.totalFor(_selectedType),
+                                color: _selectedType == TransactionType.burn
+                                    ? AppTheme.burnColor
+                                    : AppTheme.storeColor,
                               ),
                             ),
                           ],
@@ -267,21 +284,25 @@ class _ReportViewState extends ConsumerState<ReportView> {
                     ],
 
                     // ─── Spending comparison ──────────────────────────────
-                    _SpendingComparisonCard(
-                      current: data,
-                      currentDate: _selectedDate,
-                      period: _period,
-                      compare: _PeriodData.compute(
-                        allTx,
-                        allCategories,
-                        _period,
-                        _compareDate,
+                    if (_period != _Period.overall) ...[  
+                      _SpendingComparisonCard(
+                        current: data,
+                        currentDate: _selectedDate,
+                        period: _period,
+                        selectedType: _selectedType,
+                        compare: _PeriodData.compute(
+                          allTx,
+                          allCategories,
+                          _period,
+                          _compareDate,
+                          typeFilter: _selectedType,
+                        ),
+                        compareDate: _compareDate,
+                        onCompareDateChanged: (d) =>
+                            setState(() => _compareDate = d),
                       ),
-                      compareDate: _compareDate,
-                      onCompareDateChanged: (d) =>
-                          setState(() => _compareDate = d),
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
+                    ],
 
                     // ─── Transactions ─────────────────────────────────────
                     BentoCard(
@@ -295,36 +316,121 @@ class _ReportViewState extends ConsumerState<ReportView> {
                               _CountBadge(count: data.transactions.length),
                             ],
                           ),
-                          if (data.transactions.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 32),
-                              child: Center(
-                                child: Text(
-                                  'No transactions for this period',
-                                  style: TextStyle(color: Colors.white38),
-                                ),
-                              ),
-                            )
-                          else ...[
-                            const SizedBox(height: 8),
-                            ...data.transactions.map(
-                              (tx) => TransactionListTile(
-                                transaction: tx,
-                                onDelete: () => ref
-                                    .read(transactionRepositoryProvider)
-                                    .delete(tx.id),
+                          // ── Category filter chips ──
+                          if (selectedBreakdown.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  ...selectedBreakdown.keys.map((cat) {
+                                    final isSelected = _selectedCategoryFilter?.id == cat.id;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 6),
+                                      child: GestureDetector(
+                                        onTap: () => setState(() {
+                                          _selectedCategoryFilter =
+                                              isSelected ? null : cat;
+                                        }),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 160),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? cat.color.withValues(alpha: 0.2)
+                                                : AppTheme.bgColor,
+                                            borderRadius: BorderRadius.circular(20),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? cat.color
+                                                  : Colors.white.withValues(alpha: 0.1),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                width: 7,
+                                                height: 7,
+                                                decoration: BoxDecoration(
+                                                  color: cat.color,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                cat.name,
+                                                style: TextStyle(
+                                                  color: isSelected
+                                                      ? Colors.white
+                                                      : Colors.white54,
+                                                  fontSize: 11,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.w700
+                                                      : FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ],
                               ),
                             ),
                           ],
+                          Builder(builder: (_) {
+                            final filtered = _selectedCategoryFilter == null
+                                ? data.transactions
+                                : data.transactions.where((tx) {
+                                    if (tx.category == null) return false;
+                                    if (_showSubcategories) {
+                                      return tx.category!.id ==
+                                          _selectedCategoryFilter!.id;
+                                    } else {
+                                      // category mode: match parent or the cat itself
+                                      final cat = tx.category!;
+                                      final matchId = cat.parentId ?? cat.id;
+                                      return matchId ==
+                                          _selectedCategoryFilter!.id;
+                                    }
+                                  }).toList();
+                            if (filtered.isEmpty)
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 32),
+                                child: Center(
+                                  child: Text(
+                                    'No transactions for this period',
+                                    style: TextStyle(color: Colors.white38),
+                                  ),
+                                ),
+                              );
+                            return Column(
+                              children: [
+                                const SizedBox(height: 8),
+                                ...filtered.map(
+                                  (tx) => TransactionListTile(
+                                    transaction: tx,
+                                    onDelete: () => ref
+                                        .read(transactionRepositoryProvider)
+                                        .delete(tx.id),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
                         ],
                       ),
                     ),
                   ]),
                 ),
               ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -339,10 +445,9 @@ class _PeriodSelector extends StatelessWidget {
   final ValueChanged<_Period> onChanged;
 
   static const _labels = {
-    _Period.day: 'Day',
-    _Period.week: 'Week',
     _Period.month: 'Month',
     _Period.year: 'Year',
+    _Period.overall: 'Overall',
   };
 
   @override
@@ -397,17 +502,96 @@ class _PeriodSelector extends StatelessWidget {
   }
 }
 
-// ─── Summary card ─────────────────────────────────────────────────────────────
+class _TypeSelector extends StatelessWidget {
+  const _TypeSelector({required this.selected, required this.onChanged});
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.data});
+  final _TypeTab selected;
+  final ValueChanged<_TypeTab> onChanged;
 
-  final _PeriodData data;
+  static const _labels = {
+    _TypeTab.burn: 'Burn',
+    _TypeTab.store: 'Store',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final net = data.totalStore - data.totalBurn;
-    final netPositive = net >= 0;
+    return Row(
+      children: _TypeTab.values.map((tab) {
+        final isSelected = tab == selected;
+        final accent = tab == _TypeTab.burn
+            ? AppTheme.burnColor
+            : AppTheme.storeColor;
+
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => onChanged(tab),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: isSelected ? accent : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Text(
+                _labels[tab]!,
+                style: TextStyle(
+                  color: isSelected ? accent : Colors.white38,
+                  fontWeight:
+                      isSelected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ─── Summary card ─────────────────────────────────────────────────────────────
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.data,
+    required this.type,
+    this.deltaAmount,
+  });
+
+  final _PeriodData data;
+  final TransactionType type;
+  final double? deltaAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final isBurn = type == TransactionType.burn;
+    final accent = isBurn ? AppTheme.burnColor : AppTheme.storeColor;
+    final icon =
+        isBurn ? Icons.local_fire_department_rounded : Icons.savings_rounded;
+    final label = isBurn ? 'BURN' : 'STORE';
+    final amount = data.totalFor(type);
+    final count = data.countFor(type);
+
+    // Delta display
+    final delta = deltaAmount;
+    final isDeltaUp = (delta ?? 0) > 0;
+    // less than previous = teal (store color), more = red
+    final deltaColor = delta == null
+        ? Colors.white38
+        : isDeltaUp
+            ? AppTheme.burnColor
+            : AppTheme.storeColor;
+    final deltaIcon = delta == null
+        ? null
+        : isDeltaUp
+            ? Icons.arrow_upward_rounded
+            : Icons.arrow_downward_rounded;
 
     return BentoCard(
       gradient: LinearGradient(
@@ -418,159 +602,88 @@ class _SummaryCard extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            // Burn
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: AppTheme.burnColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                            Icons.local_fire_department_rounded,
-                            color: AppTheme.burnColor,
-                            size: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // ── Left: icon + label + amount + count ──
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      const SizedBox(width: 6),
-                      const Text('BURN',
-                          style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    CurrencyFormatter.formatCompact(data.totalBurn),
-                    style: const TextStyle(
-                      color: AppTheme.burnColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
+                      child: Icon(icon, color: accent, size: 13),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    '${data.burnCount} txn',
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-
-            // Divider
-            Container(
-              width: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-
-            // Net
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('NET',
-                      style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  Text(
-                    CurrencyFormatter.formatCompact(net.abs()),
-                    style: TextStyle(
-                      color: netPositive
-                          ? AppTheme.storeColor
-                          : AppTheme.burnColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    netPositive ? 'surplus' : 'deficit',
-                    style: TextStyle(
-                      color: netPositive
-                          ? AppTheme.storeColor.withValues(alpha: 0.6)
-                          : AppTheme.burnColor.withValues(alpha: 0.6),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Divider
-            Container(
-              width: 1,
-              margin: const EdgeInsets.symmetric(horizontal: 12),
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-
-            // Store
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const Text('STORE',
-                          style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1)),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color:
-                              AppTheme.storeColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.savings_rounded,
-                            color: AppTheme.storeColor, size: 13),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    CurrencyFormatter.formatCompact(data.totalStore),
-                    style: const TextStyle(
-                      color: AppTheme.storeColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  CurrencyFormatter.format(amount),
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$count txn',
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Right: delta pill (bottom-aligned) ──
+          if (delta != null && deltaIcon != null) ...[
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: deltaColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: deltaColor.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(deltaIcon, color: deltaColor, size: 13),
+                  const SizedBox(width: 4),
                   Text(
-                    '${data.storeCount} txn',
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 11),
+                    CurrencyFormatter.formatCompact(delta.abs()),
+                    style: TextStyle(
+                      color: deltaColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -960,6 +1073,7 @@ class _SpendingComparisonCard extends StatelessWidget {
     required this.current,
     required this.currentDate,
     required this.period,
+    required this.selectedType,
     required this.compare,
     required this.compareDate,
     required this.onCompareDateChanged,
@@ -968,58 +1082,25 @@ class _SpendingComparisonCard extends StatelessWidget {
   final _PeriodData current;
   final DateTime currentDate;
   final _Period period;
+  final TransactionType selectedType;
   final _PeriodData compare;
   final DateTime compareDate;
   final ValueChanged<DateTime> onCompareDateChanged;
 
   String _chipLabel() {
     switch (period) {
-      case _Period.day:
-        return DateFormat('d MMM yyyy').format(compareDate);
-      case _Period.week:
-        final ws = compareDate
-            .subtract(Duration(days: compareDate.weekday - 1));
-        final we = ws.add(const Duration(days: 6));
-        return '${DateFormat('d MMM').format(ws)}–${DateFormat('d MMM').format(we)}';
       case _Period.month:
         return DateFormat('MMM yyyy').format(compareDate);
       case _Period.year:
         return compareDate.year.toString();
+      case _Period.overall:
+        return 'N/A';
     }
   }
 
   Future<void> _openPicker(
       BuildContext context, VoidCallback Function(DateTime) apply) async {
     switch (period) {
-      case _Period.day:
-        final selDay = DateTime(
-            currentDate.year, currentDate.month, currentDate.day);
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: compareDate,
-          firstDate: DateTime(2000),
-          lastDate: selDay.subtract(const Duration(days: 1)),
-        );
-        if (picked != null) onCompareDateChanged(picked);
-        break;
-      case _Period.week:
-        final selDay = DateTime(
-            currentDate.year, currentDate.month, currentDate.day);
-        final thisWeekMon =
-            selDay.subtract(Duration(days: selDay.weekday - 1));
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: compareDate,
-          firstDate: DateTime(2000),
-          lastDate: thisWeekMon.subtract(const Duration(days: 1)),
-          helpText: 'Pick any day in the target week',
-        );
-        if (picked != null) {
-          final mon =
-              picked.subtract(Duration(days: picked.weekday - 1));
-          onCompareDateChanged(mon);
-        }
-        break;
       case _Period.month:
         if (!context.mounted) break;
         final picked = await showDialog<DateTime>(
@@ -1042,19 +1123,19 @@ class _SpendingComparisonCard extends StatelessWidget {
         );
         if (picked != null) onCompareDateChanged(DateTime(picked));
         break;
+      case _Period.overall:
+        break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final burnDelta = compare.totalBurn > 0
-        ? (current.totalBurn - compare.totalBurn) / compare.totalBurn * 100
+    final currentValue = current.totalFor(selectedType);
+    final compareValue = compare.totalFor(selectedType);
+    final selectedDelta = compareValue > 0
+      ? (currentValue - compareValue) / compareValue * 100
         : null;
-    final storeDelta = compare.totalStore > 0
-        ? (current.totalStore - compare.totalStore) /
-            compare.totalStore *
-            100
-        : null;
+    final typeLabel = selectedType == TransactionType.burn ? 'Burn' : 'Store';
 
     return BentoCard(
       child: Column(
@@ -1103,8 +1184,8 @@ class _SpendingComparisonCard extends StatelessWidget {
                 Expanded(
                   child: _CompCol(
                     label: current.periodLabel,
-                    burn: current.totalBurn,
-                    store: current.totalStore,
+                    value: currentValue,
+                    type: selectedType,
                     isCurrent: true,
                   ),
                 ),
@@ -1138,15 +1219,15 @@ class _SpendingComparisonCard extends StatelessWidget {
                 Expanded(
                   child: _CompCol(
                     label: compare.periodLabel,
-                    burn: compare.totalBurn,
-                    store: compare.totalStore,
+                    value: compareValue,
+                    type: selectedType,
                     isCurrent: false,
                   ),
                 ),
               ],
             ),
           ),
-          if (burnDelta != null || storeDelta != null) ...[
+          if (selectedDelta != null) ...[
             const SizedBox(height: 10),
             Container(
                 height: 1,
@@ -1154,16 +1235,13 @@ class _SpendingComparisonCard extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                if (burnDelta != null)
-                  Expanded(
-                      child: _DeltaChip(
-                          label: 'Burn',
-                          pct: burnDelta,
-                          invertColor: true)),
-                if (storeDelta != null)
-                  Expanded(
-                      child:
-                          _DeltaChip(label: 'Store', pct: storeDelta)),
+                Expanded(
+                  child: _DeltaChip(
+                    label: typeLabel,
+                    pct: selectedDelta,
+                    invertColor: selectedType == TransactionType.burn,
+                  ),
+                ),
               ],
             ),
           ],
@@ -1176,14 +1254,14 @@ class _SpendingComparisonCard extends StatelessWidget {
 class _CompCol extends StatelessWidget {
   const _CompCol({
     required this.label,
-    required this.burn,
-    required this.store,
+    required this.value,
+    required this.type,
     required this.isCurrent,
   });
 
   final String label;
-  final double burn;
-  final double store;
+  final double value;
+  final TransactionType type;
   final bool isCurrent;
 
   @override
@@ -1205,32 +1283,21 @@ class _CompCol extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          CurrencyFormatter.formatCompact(burn),
+          CurrencyFormatter.formatCompact(value),
           style: TextStyle(
             color: isCurrent
-                ? AppTheme.burnColor
-                : AppTheme.burnColor.withValues(alpha: 0.45),
+                ? (type == TransactionType.burn
+                    ? AppTheme.burnColor
+                    : AppTheme.storeColor)
+                : (type == TransactionType.burn
+                    ? AppTheme.burnColor.withValues(alpha: 0.45)
+                    : AppTheme.storeColor.withValues(alpha: 0.45)),
             fontSize: 17,
             fontWeight: FontWeight.w700,
           ),
         ),
         Text(
-          'burn',
-          style: const TextStyle(color: Colors.white38, fontSize: 10),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          CurrencyFormatter.formatCompact(store),
-          style: TextStyle(
-            color: isCurrent
-                ? AppTheme.storeColor
-                : AppTheme.storeColor.withValues(alpha: 0.45),
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        Text(
-          'store',
+          type.label,
           style: const TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
@@ -1549,60 +1616,17 @@ class _PeriodData {
       List<TransactionEntity> all,
       List<CategoryEntity> allCategories,
       _Period period,
-      DateTime selectedDate) {
+      DateTime selectedDate, {
+      TransactionType? typeFilter,
+  }) {
     final now = selectedDate;
+    final barType = typeFilter ?? TransactionType.burn;
     List<TransactionEntity> filtered;
     List<String> labels;
     List<double> values;
     String periodLabel;
 
     switch (period) {
-      case _Period.day:
-        filtered = all
-            .where((t) =>
-                t.date.year == now.year &&
-                t.date.month == now.month &&
-                t.date.day == now.day)
-            .toList();
-        // Hourly bars
-        labels = List.generate(24, (h) {
-          if (h == 0) return '12AM';
-          if (h < 12) return '${h}AM';
-          if (h == 12) return '12PM';
-          return '${h - 12}PM';
-        });
-        values = List.generate(24, (h) => filtered
-            .where((t) =>
-                t.type == TransactionType.burn && t.date.hour == h)
-            .fold(0.0, (s, t) => s + t.amount));
-        periodLabel = DateFormat('EEEE, d MMMM yyyy').format(now);
-        break;
-
-      case _Period.week:
-        // Mon → Sun of current week
-        final weekStart = DateTime(
-            now.year, now.month, now.day - (now.weekday - 1));
-        final weekEnd = weekStart.add(const Duration(days: 6));
-        filtered = all.where((t) {
-          final d = DateTime(t.date.year, t.date.month, t.date.day);
-          return !d.isBefore(weekStart) && !d.isAfter(weekEnd);
-        }).toList();
-        labels = List.generate(7,
-            (i) => DateFormat('EEE').format(weekStart.add(Duration(days: i))));
-        values = List.generate(7, (i) {
-          final d = weekStart.add(Duration(days: i));
-          return filtered
-              .where((t) =>
-                  t.type == TransactionType.burn &&
-                  t.date.year == d.year &&
-                  t.date.month == d.month &&
-                  t.date.day == d.day)
-              .fold(0.0, (s, t) => s + t.amount);
-        });
-        periodLabel =
-            '${DateFormat('d MMM').format(weekStart)} – ${DateFormat('d MMM yyyy').format(weekEnd)}';
-        break;
-
       case _Period.month:
         final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
         filtered = all
@@ -1612,7 +1636,7 @@ class _PeriodData {
         labels = List.generate(daysInMonth, (i) => '${i + 1}');
         values = List.generate(daysInMonth, (i) => filtered
             .where((t) =>
-                t.type == TransactionType.burn && t.date.day == i + 1)
+            t.type == barType && t.date.day == i + 1)
             .fold(0.0, (s, t) => s + t.amount));
         periodLabel = DateFormat('MMMM yyyy').format(now);
         break;
@@ -1627,11 +1651,22 @@ class _PeriodData {
             12,
             (m) => filtered
                 .where((t) =>
-                    t.type == TransactionType.burn &&
+                    t.type == barType &&
                     t.date.month == m + 1)
                 .fold(0.0, (s, t) => s + t.amount));
         periodLabel = now.year.toString();
         break;
+
+      case _Period.overall:
+        filtered = all.toList();
+        labels = [];
+        values = [];
+        periodLabel = 'All Time';
+        break;
+    }
+
+    if (typeFilter != null) {
+      filtered = filtered.where((t) => t.type == typeFilter).toList();
     }
 
     // Sort newest first
@@ -1663,6 +1698,24 @@ class _PeriodData {
       barValues: values,
       periodLabel: periodLabel,
     );
+  }
+
+  double totalFor(TransactionType type) {
+    return type == TransactionType.burn ? totalBurn : totalStore;
+  }
+
+  int countFor(TransactionType type) {
+    return type == TransactionType.burn ? burnCount : storeCount;
+  }
+
+  Map<CategoryEntity, double> breakdownFor(TransactionType type) {
+    return type == TransactionType.burn ? burnBreakdown : storeBreakdown;
+  }
+
+  Map<CategoryEntity, double> parentBreakdownFor(TransactionType type) {
+    return type == TransactionType.burn
+        ? burnParentBreakdown
+        : storeParentBreakdown;
   }
 
   static Map<CategoryEntity, double> _breakdown(

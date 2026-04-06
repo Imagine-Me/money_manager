@@ -31,6 +31,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   CategoryEntity? _selectedCategory;
   AccountEntity? _selectedAccount; // null = use primary
   AccountEntity? _toAccount; // destination for transfer type
+  bool _noFromAccount = false; // transfer: true = external source, no from account
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
 
@@ -235,13 +236,74 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
               // ─── Account / From + To (for transfer) ──────────────────────
               if (accounts.isNotEmpty) ...[  
                 if (_type == TransactionType.transfer) ...[  
-                  _FieldLabel(label: 'From Account'),
-                  const SizedBox(height: 8),
-                  _AccountPicker(
-                    accounts: accounts,
-                    selected: effectiveAccount,
-                    onChanged: (a) => setState(() => _selectedAccount = a),
+                  // ── From Account (optional) ──
+                  Row(
+                    children: [
+                      const _FieldLabel(label: 'From Account'),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _noFromAccount = !_noFromAccount;
+                          if (_noFromAccount) _selectedAccount = null;
+                        }),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'External',
+                              style: TextStyle(
+                                color: _noFromAccount
+                                    ? AppTheme.primaryColor
+                                    : Colors.white38,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              _noFromAccount
+                                  ? Icons.toggle_on_rounded
+                                  : Icons.toggle_off_rounded,
+                              color: _noFromAccount
+                                  ? AppTheme.primaryColor
+                                  : Colors.white24,
+                              size: 22,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                  if (_noFromAccount)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.input_rounded,
+                              color: Colors.white38, size: 18),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'External source (salary, gift, etc.)',
+                            style: TextStyle(
+                                color: Colors.white38, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    _AccountPicker(
+                      accounts: accounts,
+                      selected: effectiveAccount,
+                      onChanged: (a) => setState(() => _selectedAccount = a),
+                    ),
                   const SizedBox(height: 16),
                   _FieldLabel(label: 'To Account'),
                   const SizedBox(height: 8),
@@ -358,8 +420,10 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
             orElse: () => accounts.last,
           );
         }
-        final title =
-            '${resolvedAccount?.name ?? 'Account'} → ${resolvedTo?.name ?? 'Account'}';
+        // When noFromAccount, don't use any from account
+        final fromAccount = _noFromAccount ? null : resolvedAccount;
+        final fromName = fromAccount?.name ?? 'External';
+        final title = '$fromName → ${resolvedTo?.name ?? 'Account'}';
         final tx = TransactionEntity(
           id: widget.existing?.id ?? 0,
           title: title,
@@ -367,7 +431,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
           date: _selectedDate,
           type: TransactionType.transfer,
           note: '',
-          accountId: resolvedAccount?.id,
+          accountId: fromAccount?.id,
           toAccountId: resolvedTo?.id,
         );
         await txRepo.save(tx);
