@@ -35,7 +35,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
   DateTime _compareDate = DateTime(
       DateTime.now().year, DateTime.now().month - 1, 1);
   bool _showSubcategories = false;
-  CategoryEntity? _selectedCategoryFilter;
+  Set<int> _categoryFilterIds = {};
 
   TransactionType get _selectedType =>
       _selectedTab == _TypeTab.burn
@@ -59,7 +59,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
         case _Period.overall:
           break;
       }
-      _selectedCategoryFilter = null;
+      _categoryFilterIds = {};
     });
   }
 
@@ -80,8 +80,22 @@ class _ReportViewState extends ConsumerState<ReportView> {
         case _Period.overall:
           break;
       }
-      _selectedCategoryFilter = null;
+      _categoryFilterIds = {};
     });
+  }
+
+  void _openCategoryFilterSheet(
+      BuildContext context, Map<CategoryEntity, double> categories) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _CategoryFilterSheet(
+        categories: categories,
+        initialSelected: Set.from(_categoryFilterIds),
+        onApply: (ids) => setState(() => _categoryFilterIds = ids),
+      ),
+    );
   }
 
   @override
@@ -110,13 +124,27 @@ class _ReportViewState extends ConsumerState<ReportView> {
             _Period.year => _selectedDate.year < now.year,
             _Period.overall => false,
           };
-          final data = _PeriodData.compute(
+          final rawData = _PeriodData.compute(
             allTx,
             allCategories,
             _period,
             _selectedDate,
             typeFilter: _selectedType,
           );
+          final rawBreakdown = _showSubcategories
+              ? rawData.breakdownFor(_selectedType)
+              : rawData.parentBreakdownFor(_selectedType);
+          final data = _categoryFilterIds.isEmpty
+              ? rawData
+              : _PeriodData.compute(
+                  allTx,
+                  allCategories,
+                  _period,
+                  _selectedDate,
+                  typeFilter: _selectedType,
+                  categoryIdFilter: _categoryFilterIds,
+                  showSubcategories: _showSubcategories,
+                );
           final selectedBreakdown = _showSubcategories
               ? data.breakdownFor(_selectedType)
               : data.parentBreakdownFor(_selectedType);
@@ -130,7 +158,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
                       selected: _selectedTab,
                       onChanged: (tab) => setState(() {
                         _selectedTab = tab;
-                        _selectedCategoryFilter = null;
+                        _categoryFilterIds = {};
                       }),
                     ),
                   ),
@@ -146,7 +174,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
                         final now = DateTime.now();
                         _period = p;
                         _selectedDate = now;
-                        _selectedCategoryFilter = null;
+                        _categoryFilterIds = {};
                         switch (p) {
                           case _Period.month:
                             _compareDate =
@@ -212,13 +240,25 @@ class _ReportViewState extends ConsumerState<ReportView> {
                     ),
                     const SizedBox(height: 12),
 
-                    // ─── Category toggle ─────────────────────────────────
-                    _DrillToggle(
-                      showSubcategories: _showSubcategories,
-                      onChanged: (v) => setState(() {
-                        _showSubcategories = v;
-                        _selectedCategoryFilter = null;
-                      }),
+                    // ─── Category toggle + filter ────────────────────────
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DrillToggle(
+                            showSubcategories: _showSubcategories,
+                            onChanged: (v) => setState(() {
+                              _showSubcategories = v;
+                              _categoryFilterIds = {};
+                            }),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterIconButton(
+                          activeCount: _categoryFilterIds.length,
+                          onTap: () => _openCategoryFilterSheet(
+                              context, rawBreakdown),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
 
@@ -296,6 +336,8 @@ class _ReportViewState extends ConsumerState<ReportView> {
                           _period,
                           _compareDate,
                           typeFilter: _selectedType,
+                          categoryIdFilter: _categoryFilterIds,
+                          showSubcategories: _showSubcategories,
                         ),
                         compareDate: _compareDate,
                         onCompareDateChanged: (d) =>
@@ -316,87 +358,8 @@ class _ReportViewState extends ConsumerState<ReportView> {
                               _CountBadge(count: data.transactions.length),
                             ],
                           ),
-                          // ── Category filter chips ──
-                          if (selectedBreakdown.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  ...selectedBreakdown.keys.map((cat) {
-                                    final isSelected = _selectedCategoryFilter?.id == cat.id;
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 6),
-                                      child: GestureDetector(
-                                        onTap: () => setState(() {
-                                          _selectedCategoryFilter =
-                                              isSelected ? null : cat;
-                                        }),
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 160),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 10, vertical: 5),
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? cat.color.withValues(alpha: 0.2)
-                                                : AppTheme.bgColor,
-                                            borderRadius: BorderRadius.circular(20),
-                                            border: Border.all(
-                                              color: isSelected
-                                                  ? cat.color
-                                                  : Colors.white.withValues(alpha: 0.1),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Container(
-                                                width: 7,
-                                                height: 7,
-                                                decoration: BoxDecoration(
-                                                  color: cat.color,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 5),
-                                              Text(
-                                                cat.name,
-                                                style: TextStyle(
-                                                  color: isSelected
-                                                      ? Colors.white
-                                                      : Colors.white54,
-                                                  fontSize: 11,
-                                                  fontWeight: isSelected
-                                                      ? FontWeight.w700
-                                                      : FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                ],
-                              ),
-                            ),
-                          ],
                           Builder(builder: (_) {
-                            final filtered = _selectedCategoryFilter == null
-                                ? data.transactions
-                                : data.transactions.where((tx) {
-                                    if (tx.category == null) return false;
-                                    if (_showSubcategories) {
-                                      return tx.category!.id ==
-                                          _selectedCategoryFilter!.id;
-                                    } else {
-                                      // category mode: match parent or the cat itself
-                                      final cat = tx.category!;
-                                      final matchId = cat.parentId ?? cat.id;
-                                      return matchId ==
-                                          _selectedCategoryFilter!.id;
-                                    }
-                                  }).toList();
+                            final filtered = data.transactions;
                             if (filtered.isEmpty)
                               return const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 32),
@@ -1618,26 +1581,24 @@ class _PeriodData {
       _Period period,
       DateTime selectedDate, {
       TransactionType? typeFilter,
+      Set<int> categoryIdFilter = const {},
+      bool showSubcategories = false,
   }) {
     final now = selectedDate;
-    final barType = typeFilter ?? TransactionType.burn;
     List<TransactionEntity> filtered;
     List<String> labels;
-    List<double> values;
+    List<double> values = [];
     String periodLabel;
+    int? _daysInMonth;
 
     switch (period) {
       case _Period.month:
-        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+        _daysInMonth = DateTime(now.year, now.month + 1, 0).day;
         filtered = all
             .where((t) =>
                 t.date.year == now.year && t.date.month == now.month)
             .toList();
-        labels = List.generate(daysInMonth, (i) => '${i + 1}');
-        values = List.generate(daysInMonth, (i) => filtered
-            .where((t) =>
-            t.type == barType && t.date.day == i + 1)
-            .fold(0.0, (s, t) => s + t.amount));
+        labels = List.generate(_daysInMonth, (i) => '${i + 1}');
         periodLabel = DateFormat('MMMM yyyy').format(now);
         break;
 
@@ -1647,20 +1608,12 @@ class _PeriodData {
             12,
             (i) =>
                 DateFormat('MMM').format(DateTime(now.year, i + 1)));
-        values = List.generate(
-            12,
-            (m) => filtered
-                .where((t) =>
-                    t.type == barType &&
-                    t.date.month == m + 1)
-                .fold(0.0, (s, t) => s + t.amount));
         periodLabel = now.year.toString();
         break;
 
       case _Period.overall:
         filtered = all.toList();
         labels = [];
-        values = [];
         periodLabel = 'All Time';
         break;
     }
@@ -1669,8 +1622,35 @@ class _PeriodData {
       filtered = filtered.where((t) => t.type == typeFilter).toList();
     }
 
+    if (categoryIdFilter.isNotEmpty) {
+      filtered = filtered.where((t) {
+        if (t.category == null) return false;
+        final cat = t.category!;
+        if (showSubcategories) return categoryIdFilter.contains(cat.id);
+        return categoryIdFilter.contains(cat.parentId ?? cat.id);
+      }).toList();
+    }
+
     // Sort newest first
     filtered.sort((a, b) => b.date.compareTo(a.date));
+
+    // Compute bar chart values from fully-filtered transactions
+    switch (period) {
+      case _Period.month:
+        values = List.generate(_daysInMonth!, (i) => filtered
+            .where((t) => t.date.day == i + 1)
+            .fold(0.0, (s, t) => s + t.amount));
+        break;
+      case _Period.year:
+        values = List.generate(
+            12,
+            (m) => filtered
+                .where((t) => t.date.month == m + 1)
+                .fold(0.0, (s, t) => s + t.amount));
+        break;
+      case _Period.overall:
+        break;
+    }
 
     final totalBurn = filtered
         .where((t) => t.type == TransactionType.burn)
@@ -1745,5 +1725,298 @@ class _PeriodData {
     }
     return Map.fromEntries(
         map.entries.toList()..sort((a, b) => b.value.compareTo(a.value)));
+  }
+}
+
+// ─── Filter icon button ───────────────────────────────────────────────────────
+
+class _FilterIconButton extends StatelessWidget {
+  const _FilterIconButton({
+    required this.activeCount,
+    required this.onTap,
+  });
+
+  final int activeCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = activeCount > 0;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              : AppTheme.cardColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive
+                ? AppTheme.primaryColor.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(
+              Icons.filter_list_rounded,
+              color: isActive ? AppTheme.primaryColor : Colors.white54,
+              size: 16,
+            ),
+            if (isActive)
+              Positioned(
+                right: -4,
+                top: -4,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.cardColor, width: 1.5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '$activeCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Category filter sheet ────────────────────────────────────────────────────
+
+class _CategoryFilterSheet extends StatefulWidget {
+  const _CategoryFilterSheet({
+    required this.categories,
+    required this.initialSelected,
+    required this.onApply,
+  });
+
+  final Map<CategoryEntity, double> categories;
+  final Set<int> initialSelected;
+  final ValueChanged<Set<int>> onApply;
+
+  @override
+  State<_CategoryFilterSheet> createState() => _CategoryFilterSheetState();
+}
+
+class _CategoryFilterSheetState extends State<_CategoryFilterSheet> {
+  late Set<int> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = Set.from(widget.initialSelected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
+            child: Row(
+              children: [
+                const Text(
+                  'FILTER BY CATEGORY',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const Spacer(),
+                if (_selected.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => setState(() => _selected.clear()),
+                    child: const Text(
+                      'Clear all',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(
+                      Icons.close_rounded, color: Colors.white54, size: 20),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // category list
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              itemCount: widget.categories.length,
+              itemBuilder: (_, i) {
+                final entry = widget.categories.entries.elementAt(i);
+                final cat = entry.key;
+                final amount = entry.value;
+                final isSelected = _selected.contains(cat.id);
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    if (isSelected) {
+                      _selected.remove(cat.id);
+                    } else {
+                      _selected.add(cat.id);
+                    }
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? cat.color.withValues(alpha: 0.12)
+                          : AppTheme.bgColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? cat.color.withValues(alpha: 0.6)
+                            : Colors.white.withValues(alpha: 0.07),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: cat.color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            cat.name,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.white70,
+                              fontSize: 14,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          CurrencyFormatter.formatCompact(amount),
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.white54,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? cat.color
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? cat.color : Colors.white24,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: isSelected
+                              ? const Icon(Icons.check_rounded,
+                                  color: Colors.white, size: 12)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          // apply button
+          Padding(
+            padding:
+                EdgeInsets.fromLTRB(16, 4, 16, 16 + bottomPad),
+            child: SizedBox(
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: () {
+                  widget.onApply(Set.from(_selected));
+                  Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _selected.isEmpty
+                        ? 'Show All'
+                        : 'Apply (${_selected.length})',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
