@@ -4,6 +4,7 @@ import 'package:money_manager/core/utils/category_seeder.dart';
 import 'package:money_manager/data/models/account_model.dart';
 import 'package:money_manager/data/models/category_model.dart';
 import 'package:money_manager/data/models/recurring_transaction_model.dart';
+import 'package:money_manager/data/models/report_filter_model.dart';
 import 'package:money_manager/data/models/transaction_model.dart';
 
 class IsarService {
@@ -28,6 +29,7 @@ class IsarService {
         CategoryModelSchema,
         TransactionModelSchema,
         RecurringTransactionModelSchema,
+        ReportFilterModelSchema,
       ],
       directory: dir.path,
       name: 'vaultcash',

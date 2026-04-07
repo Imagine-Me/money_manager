@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/core/utils/currency_formatter.dart';
+import 'package:money_manager/domain/entities/report_filter_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/views/report_view.dart';
 import 'package:money_manager/presentation/views/transactions_view.dart';
@@ -16,6 +17,7 @@ class DashboardView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsAsync = ref.watch(analyticsProvider);
+    final filtersAsync = ref.watch(reportFilterListProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
@@ -97,6 +99,102 @@ class DashboardView extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // ─── Quick Filter Presets ──────────────────────────────
+                  filtersAsync.whenData((filters) => filters).valueOrNull
+                              ?.isNotEmpty ==
+                          true
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'QUICK REPORTS',
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: filtersAsync.valueOrNull!
+                                    .map((f) => Padding(
+                                          padding: const EdgeInsets.only(
+                                              right: 8),
+                                          child: _FilterPresetChip(
+                                            filter: f,
+                                            onTap: () {
+                                              ref
+                                                  .read(
+                                                      pendingReportFilterProvider
+                                                          .notifier)
+                                                  .state = f;
+                                              ref
+                                                  .read(homeTabIndexProvider
+                                                      .notifier)
+                                                  .state = 1;
+                                            },
+                                            onDelete: () async {
+                                              final confirm =
+                                                  await showDialog<bool>(
+                                                context: context,
+                                                builder: (_) => AlertDialog(
+                                                  backgroundColor:
+                                                      const Color(0xFF1E1E2E),
+                                                  title: const Text(
+                                                    'Delete preset?',
+                                                    style: TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 16),
+                                                  ),
+                                                  content: Text(
+                                                    'Remove "${f.name}"?',
+                                                    style: const TextStyle(
+                                                        color: Colors.white60),
+                                                  ),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                              context, false),
+                                                      child: const Text(
+                                                          'Cancel',
+                                                          style: TextStyle(
+                                                              color: Colors
+                                                                  .white38)),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () =>
+                                                          Navigator.pop(
+                                                              context, true),
+                                                      child: const Text(
+                                                          'Delete',
+                                                          style: TextStyle(
+                                                              color: Color(
+                                                                  0xFFFF6B6B))),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                              if (confirm == true) {
+                                                await ref
+                                                    .read(
+                                                        reportFilterRepositoryProvider)
+                                                    .delete(f.id);
+                                              }
+                                            },
+                                          ),
+                                        ))
+                                    .toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                        )
+                      : const SizedBox.shrink(),
 
                   // ─── Row 3: Weekly Chart (full-width) ─────────────────────
                   analyticsAsync.when(
@@ -568,6 +666,53 @@ class _ErrorCard extends StatelessWidget {
       child: Text(
         'Error: $message',
         style: const TextStyle(color: AppTheme.burnColor, fontSize: 13),
+      ),
+    );
+  }
+}
+
+// ─── Filter preset chip ───────────────────────────────────────────────────────
+
+class _FilterPresetChip extends StatelessWidget {
+  const _FilterPresetChip({
+    required this.filter,
+    required this.onTap,
+    required this.onDelete,
+  });
+
+  final ReportFilterEntity filter;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onDelete,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: AppTheme.primaryColor.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bookmark_rounded,
+                color: AppTheme.primaryColor, size: 12),
+            const SizedBox(width: 6),
+            Text(
+              filter.name,
+              style: const TextStyle(
+                color: AppTheme.primaryColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

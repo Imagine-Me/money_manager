@@ -6,6 +6,7 @@ import 'package:money_manager/core/constants/app_constants.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/core/utils/currency_formatter.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
+import 'package:money_manager/domain/entities/report_filter_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/widgets/bento_card.dart';
@@ -36,6 +37,8 @@ class _ReportViewState extends ConsumerState<ReportView> {
       DateTime.now().year, DateTime.now().month - 1, 1);
   bool _showSubcategories = false;
   Set<int> _categoryFilterIds = {};
+  int? _activePresetId;
+  String _activePresetName = '';
 
   TransactionType get _selectedType =>
       _selectedTab == _TypeTab.burn
@@ -84,6 +87,54 @@ class _ReportViewState extends ConsumerState<ReportView> {
     });
   }
 
+  void _savePreset(BuildContext context) async {
+    int id = 0;
+    String? name;
+
+    if (_activePresetId != null) {
+      final update = await showDialog<bool>(
+        context: context,
+        builder: (_) => _PresetUpdateDialog(presetName: _activePresetName),
+      );
+      if (update == null) return;
+      if (update) {
+        id = _activePresetId!;
+        name = _activePresetName;
+      }
+    }
+
+    if (id == 0) {
+      name = await showDialog<String>(
+        context: context,
+        builder: (_) => const _SavePresetDialog(),
+      );
+      if (name == null || name.trim().isEmpty) return;
+      name = name.trim();
+    }
+
+    final entity = ReportFilterEntity(
+      id: id,
+      name: name!,
+      period: _periodStr(_period),
+      typeTab: _typeTabStr(_selectedTab),
+      categoryFilterIds: _categoryFilterIds.toList(),
+      showSubcategories: _showSubcategories,
+      createdAt: DateTime.now(),
+    );
+    await ref.read(reportFilterRepositoryProvider).save(entity);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(id != 0
+              ? '"$name" updated'
+              : 'Filter "$name" saved'),
+          backgroundColor: AppTheme.primaryColor,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   void _openCategoryFilterSheet(
       BuildContext context, Map<CategoryEntity, double> categories) {
     showModalBottomSheet<void>(
@@ -100,6 +151,21 @@ class _ReportViewState extends ConsumerState<ReportView> {
 
   @override
   Widget build(BuildContext context) {
+    // Apply a pending filter preset (from dashboard chip tap)
+    ref.listen<ReportFilterEntity?>(pendingReportFilterProvider, (_, preset) {
+      if (preset == null) return;
+      setState(() {
+        _period = _periodFromStr(preset.period);
+        _selectedTab = _typeTabFromStr(preset.typeTab);
+        _categoryFilterIds = Set.from(preset.categoryFilterIds);
+        _showSubcategories = preset.showSubcategories;
+        _selectedDate = DateTime.now();
+        _activePresetId = preset.id;
+        _activePresetName = preset.name;
+      });
+      ref.read(pendingReportFilterProvider.notifier).state = null;
+    });
+
     final txAsync = ref.watch(transactionListProvider);
     final catAsync = ref.watch(categoryListProvider);
 
@@ -134,6 +200,19 @@ class _ReportViewState extends ConsumerState<ReportView> {
           final rawBreakdown = _showSubcategories
               ? rawData.breakdownFor(_selectedType)
               : rawData.parentBreakdownFor(_selectedType);
+          // All categories for the filter sheet (not just those with txns)
+          final sheetCats = _showSubcategories
+              ? allCategories.where((c) => c.parentId != null).toList()
+              : allCategories.where((c) => c.parentId == null).toList();
+          final filterSheetCategories = Map.fromEntries(
+            (sheetCats.map((cat) {
+              final amount = rawBreakdown.entries
+                  .where((e) => e.key.id == cat.id)
+                  .fold(0.0, (s, e) => s + e.value);
+              return MapEntry(cat, amount);
+            }).toList()
+              ..sort((a, b) => b.value.compareTo(a.value))),
+          );
           final data = _categoryFilterIds.isEmpty
               ? rawData
               : _PeriodData.compute(
@@ -256,7 +335,12 @@ class _ReportViewState extends ConsumerState<ReportView> {
                         _FilterIconButton(
                           activeCount: _categoryFilterIds.length,
                           onTap: () => _openCategoryFilterSheet(
-                              context, rawBreakdown),
+                              context, filterSheetCategories),
+                        ),
+                        const SizedBox(width: 8),
+                        _SavePresetButton(
+                          isActive: _activePresetId != null,
+                          onTap: () => _savePreset(context),
                         ),
                       ],
                     ),
@@ -1795,7 +1879,263 @@ class _FilterIconButton extends StatelessWidget {
   }
 }
 
-// ─── Category filter sheet ────────────────────────────────────────────────────
+// ─── Filter preset helpers ────────────────────────────────────────────────────
+
+String _periodStr(_Period p) => switch (p) {
+      _Period.month => 'month',
+      _Period.year => 'year',
+      _Period.overall => 'overall',
+    };
+
+String _typeTabStr(_TypeTab t) => switch (t) {
+      _TypeTab.burn => 'burn',
+      _TypeTab.store => 'store',
+    };
+
+_Period _periodFromStr(String s) => switch (s) {
+      'year' => _Period.year,
+      'overall' => _Period.overall,
+      _ => _Period.month,
+    };
+
+_TypeTab _typeTabFromStr(String s) =>
+    s == 'store' ? _TypeTab.store : _TypeTab.burn;
+
+// ─── Save preset button ───────────────────────────────────────────────────────
+
+class _SavePresetButton extends StatelessWidget {
+  const _SavePresetButton({required this.onTap, this.isActive = false});
+
+  final VoidCallback onTap;
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppTheme.primaryColor.withValues(alpha: 0.15)
+              : AppTheme.cardColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive
+                ? AppTheme.primaryColor.withValues(alpha: 0.6)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Icon(
+          isActive ? Icons.bookmark_rounded : Icons.bookmark_add_outlined,
+          color: isActive ? AppTheme.primaryColor : Colors.white54,
+          size: 16,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Preset update dialog ─────────────────────────────────────────────────────
+
+class _PresetUpdateDialog extends StatelessWidget {
+  const _PresetUpdateDialog({required this.presetName});
+
+  final String presetName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppTheme.cardColor,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'SAVE FILTER',
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => Navigator.pop(context, true),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.4)),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Update "$presetName"',
+                  style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => Navigator.pop(context, false),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgColor,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                alignment: Alignment.center,
+                child: const Text(
+                  'Save as new',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white38, fontSize: 13),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Save preset dialog ───────────────────────────────────────────────────────
+
+class _SavePresetDialog extends StatefulWidget {
+  const _SavePresetDialog();
+
+  @override
+  State<_SavePresetDialog> createState() => _SavePresetDialogState();
+}
+
+class _SavePresetDialogState extends State<_SavePresetDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppTheme.cardColor,
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'SAVE FILTER PRESET',
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'e.g. Monthly Food',
+                hintStyle:
+                    const TextStyle(color: Colors.white38, fontSize: 14),
+                filled: true,
+                fillColor: AppTheme.bgColor,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+              onSubmitted: (v) {
+                if (v.trim().isNotEmpty) Navigator.pop(context, v.trim());
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.white38, fontSize: 13),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                GestureDetector(
+                  onTap: () {
+                    final v = _controller.text.trim();
+                    if (v.isNotEmpty) Navigator.pop(context, v);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 9),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Save',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _CategoryFilterSheet extends StatefulWidget {
   const _CategoryFilterSheet({

@@ -18,7 +18,6 @@ class HomeShell extends ConsumerStatefulWidget {
 }
 
 class _HomeShellState extends ConsumerState<HomeShell> {
-  int _currentIndex = 0;
   bool _reminderShown = false;
 
   static const _pages = <Widget>[
@@ -56,10 +55,10 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     return Scaffold(
       backgroundColor: AppTheme.bgColor,
       body: IndexedStack(
-        index: _currentIndex,
+        index: ref.watch(homeTabIndexProvider),
         children: _pages,
       ),
-      floatingActionButton: _currentIndex == 0
+      floatingActionButton: ref.watch(homeTabIndexProvider) == 0
           // accounts tab has its own FAB inside AccountsView
           ? FloatingActionButton(
               heroTag: 'home_fab',
@@ -74,8 +73,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             )
           : null,
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        currentIndex: ref.watch(homeTabIndexProvider),
+        onTap: (i) => ref.read(homeTabIndexProvider.notifier).state = i,
         backgroundColor: const Color(0xFF1A1A2E),
         selectedItemColor: AppTheme.primaryColor,
         unselectedItemColor: Colors.white38,

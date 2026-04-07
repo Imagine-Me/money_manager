@@ -4,14 +4,17 @@ import 'package:money_manager/data/datasources/local/isar_service.dart';
 import 'package:money_manager/data/repositories/account_repository_impl.dart';
 import 'package:money_manager/data/repositories/category_repository_impl.dart';
 import 'package:money_manager/data/repositories/recurring_transaction_repository_impl.dart';
+import 'package:money_manager/data/repositories/report_filter_repository_impl.dart';
 import 'package:money_manager/data/repositories/transaction_repository_impl.dart';
 import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
 import 'package:money_manager/domain/entities/recurring_transaction_entity.dart';
+import 'package:money_manager/domain/entities/report_filter_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/domain/repositories/account_repository.dart';
 import 'package:money_manager/domain/repositories/category_repository.dart';
 import 'package:money_manager/domain/repositories/recurring_transaction_repository.dart';
+import 'package:money_manager/domain/repositories/report_filter_repository.dart';
 import 'package:money_manager/domain/repositories/transaction_repository.dart';
 import 'package:money_manager/domain/usecases/analytics_engine.dart';
 
@@ -158,6 +161,26 @@ class _Analytics {
 
   double get totalBalance => totalStore - totalBurn;
 }
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+
+/// Index of the currently visible tab in HomeShell (0=Dashboard, 1=Reports…)
+final homeTabIndexProvider = StateProvider<int>((ref) => 0);
+
+/// A pending filter preset to be applied when the reports tab opens.
+final pendingReportFilterProvider =
+    StateProvider<ReportFilterEntity?>((ref) => null);
+
+// ─── Report filter presets ────────────────────────────────────────────────────
+
+final reportFilterRepositoryProvider = Provider<ReportFilterRepository>((ref) {
+  return ReportFilterRepositoryImpl(ref.watch(isarServiceProvider));
+});
+
+final reportFilterListProvider =
+    StreamProvider<List<ReportFilterEntity>>((ref) {
+  return ref.watch(reportFilterRepositoryProvider).watchAll();
+});
 
 // Export _Analytics as AppAnalytics for use in views.
 typedef AppAnalytics = _Analytics;
