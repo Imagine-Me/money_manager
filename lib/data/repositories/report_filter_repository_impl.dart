@@ -1,4 +1,5 @@
 import 'package:isar/isar.dart';
+import 'package:money_manager/core/utils/report_filter_seeder.dart';
 import 'package:money_manager/data/datasources/local/isar_service.dart';
 import 'package:money_manager/data/models/report_filter_model.dart';
 import 'package:money_manager/domain/entities/report_filter_entity.dart';
@@ -48,6 +49,10 @@ class ReportFilterRepositoryImpl implements ReportFilterRepository {
 
   @override
   Future<void> delete(int id) async {
+    final existing = await _db.reportFilterModels.get(id);
+    if (existing == null) return;
+    if (ReportFilterSeeder.isLockedPresetModel(existing)) return;
+
     await _db.writeTxn(() async {
       await _db.reportFilterModels.delete(id);
     });

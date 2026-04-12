@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:money_manager/core/utils/category_seeder.dart';
+import 'package:money_manager/core/utils/report_filter_seeder.dart';
 import 'package:money_manager/data/models/account_model.dart';
 import 'package:money_manager/data/models/category_model.dart';
 import 'package:money_manager/data/models/recurring_transaction_model.dart';
@@ -39,6 +40,7 @@ class IsarService {
     await CategorySeeder.seedMissingIncome(_isar!);
     await CategorySeeder.seedLoans(_isar!);
     await CategorySeeder.moveCreditCardEMIToBills(_isar!);
+    await ReportFilterSeeder.seedDefaultLockedPresets(_isar!);
     return _isar!;
   }
 
