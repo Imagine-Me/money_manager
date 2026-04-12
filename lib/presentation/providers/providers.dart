@@ -171,6 +171,10 @@ final homeTabIndexProvider = StateProvider<int>((ref) => 0);
 final pendingReportFilterProvider =
     StateProvider<ReportFilterEntity?>((ref) => null);
 
+/// Incremented each time the user taps Reports in the bottom nav directly
+/// (not via a dashboard preset chip). ReportView listens and clears filters.
+final reportFilterResetProvider = StateProvider<int>((ref) => 0);
+
 // ─── Report filter presets ────────────────────────────────────────────────────
 
 final reportFilterRepositoryProvider = Provider<ReportFilterRepository>((ref) {

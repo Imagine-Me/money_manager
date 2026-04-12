@@ -74,7 +74,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: ref.watch(homeTabIndexProvider),
-        onTap: (i) => ref.read(homeTabIndexProvider.notifier).state = i,
+        onTap: (i) {
+          if (i == 1) {
+            ref.read(reportFilterResetProvider.notifier).state++;
+          }
+          ref.read(homeTabIndexProvider.notifier).state = i;
+        },
         backgroundColor: const Color(0xFF1A1A2E),
         selectedItemColor: AppTheme.primaryColor,
         unselectedItemColor: Colors.white38,

@@ -36,6 +36,7 @@ class IsarService {
     );
     await CategorySeeder.seed(_isar!);
     await CategorySeeder.seedLoans(_isar!);
+    await CategorySeeder.moveCreditCardEMIToBills(_isar!);
     return _isar!;
   }
 

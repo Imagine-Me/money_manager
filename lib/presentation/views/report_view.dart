@@ -151,6 +151,17 @@ class _ReportViewState extends ConsumerState<ReportView> {
 
   @override
   Widget build(BuildContext context) {
+    // Clear filters when the user taps Reports directly in the bottom nav.
+    // This signal is only incremented by HomeShell.onTap, never by dashboard
+    // preset chips, so presets are not affected.
+    ref.listen<int>(reportFilterResetProvider, (_, __) {
+      setState(() {
+        _categoryFilterIds = {};
+        _activePresetId = null;
+        _activePresetName = '';
+      });
+    });
+
     // Apply a pending filter preset (from dashboard chip tap)
     ref.listen<ReportFilterEntity?>(pendingReportFilterProvider, (_, preset) {
       if (preset == null) return;
@@ -290,6 +301,15 @@ class _ReportViewState extends ConsumerState<ReportView> {
                       data: data,
                       type: _selectedType,
                       deltaAmount: () {
+                        bool catMatch(TransactionEntity t) {
+                          if (_categoryFilterIds.isEmpty) return true;
+                          if (t.category == null) return false;
+                          final cat = t.category!;
+                          return _showSubcategories
+                              ? _categoryFilterIds.contains(cat.id)
+                              : _categoryFilterIds.contains(cat.parentId ?? cat.id);
+                        }
+
                         if (_period == _Period.month) {
                           final sel = _selectedDate;
                           final day = sel.day;
@@ -300,7 +320,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
                           final prevDay = day <= prevDays ? day : prevDays;
                           final prevEnd = DateTime(prevStart.year, prevStart.month, prevDay, 23, 59, 59, 999);
                           double sum(DateTime s, DateTime e) => allTx
-                              .where((t) => t.type == _selectedType && !t.date.isBefore(s) && !t.date.isAfter(e))
+                              .where((t) => t.type == _selectedType && !t.date.isBefore(s) && !t.date.isAfter(e) && catMatch(t))
                               .fold(0.0, (a, t) => a + t.amount);
                           return sum(curStart, curEnd) - sum(prevStart, prevEnd);
                         } else if (_period == _Period.year) {
@@ -310,7 +330,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
                           final prevStart = DateTime(sel.year - 1, 1, 1);
                           final prevEnd = DateTime(sel.year - 1, sel.month + 1, 0, 23, 59, 59, 999);
                           double sum(DateTime s, DateTime e) => allTx
-                              .where((t) => t.type == _selectedType && !t.date.isBefore(s) && !t.date.isAfter(e))
+                              .where((t) => t.type == _selectedType && !t.date.isBefore(s) && !t.date.isAfter(e) && catMatch(t))
                               .fold(0.0, (a, t) => a + t.amount);
                           return sum(curStart, curEnd) - sum(prevStart, prevEnd);
                         }
@@ -326,8 +346,28 @@ class _ReportViewState extends ConsumerState<ReportView> {
                           child: _DrillToggle(
                             showSubcategories: _showSubcategories,
                             onChanged: (v) => setState(() {
+                              if (_categoryFilterIds.isEmpty) {
+                                _showSubcategories = v;
+                                return;
+                              }
+                              if (v) {
+                                // Parent → subcategory: expand to all subs of filtered parents
+                                _categoryFilterIds = allCategories
+                                    .where((c) =>
+                                        c.parentId != null &&
+                                        _categoryFilterIds.contains(c.parentId))
+                                    .map((c) => c.id)
+                                    .toSet();
+                              } else {
+                                // Subcategory → parent: collapse to parents with ≥1 selected sub
+                                _categoryFilterIds = allCategories
+                                    .where((c) =>
+                                        c.parentId != null &&
+                                        _categoryFilterIds.contains(c.id))
+                                    .map((c) => c.parentId!)
+                                    .toSet();
+                              }
                               _showSubcategories = v;
-                              _categoryFilterIds = {};
                             }),
                           ),
                         ),

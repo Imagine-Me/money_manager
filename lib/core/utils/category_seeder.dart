@@ -142,6 +142,7 @@ class CategorySeeder {
         ('Insurance', Icons.security_rounded),
         ('Taxes', Icons.account_balance_rounded),
         ('App Subscriptions', Icons.subscriptions_rounded),
+        ('Credit Card EMI', Icons.credit_card_rounded),
       ]);
 
       // Loans & EMI
@@ -151,7 +152,6 @@ class CategorySeeder {
         ('Bike Loan', Icons.two_wheeler_rounded),
         ('Personal Loan', Icons.person_rounded),
         ('Home Loan', Icons.home_rounded),
-        ('Credit Card EMI', Icons.credit_card_rounded),
         ('Education Loan', Icons.school_rounded),
         ('Gold Loan', Icons.monetization_on_rounded),
       ]);
@@ -199,10 +199,43 @@ class CategorySeeder {
         ('Bike Loan', Icons.two_wheeler_rounded),
         ('Personal Loan', Icons.person_rounded),
         ('Home Loan', Icons.home_rounded),
-        ('Credit Card EMI', Icons.credit_card_rounded),
         ('Education Loan', Icons.school_rounded),
         ('Gold Loan', Icons.monetization_on_rounded),
       ]);
+    });
+  }
+
+  // ── Migration: move Credit Card EMI to Bills & Fees ───────────────────────
+
+  /// Moves the "Credit Card EMI" subcategory from "Loans & EMI" to
+  /// "Bills & Fees" for existing users. Safe to call on every startup.
+  static Future<void> moveCreditCardEMIToBills(Isar isar) async {
+    // Find Bills & Fees parent
+    final bills = await isar.categoryModels
+        .filter()
+        .nameEqualTo('Bills & Fees')
+        .findFirst();
+    if (bills == null) return;
+
+    // Find Credit Card EMI subcategory under Loans & EMI
+    final loans = await isar.categoryModels
+        .filter()
+        .nameEqualTo('Loans & EMI')
+        .findFirst();
+    if (loans == null) return;
+
+    final emiEntry = await isar.categoryModels
+        .filter()
+        .nameEqualTo('Credit Card EMI')
+        .parentIdEqualTo(loans.id)
+        .findFirst();
+    if (emiEntry == null) return; // already moved or doesn't exist
+
+    // Re-parent to Bills & Fees
+    await isar.writeTxn(() async {
+      emiEntry.parentId = bills.id;
+      emiEntry.colorValue = bills.colorValue;
+      await isar.categoryModels.put(emiEntry);
     });
   }
 
