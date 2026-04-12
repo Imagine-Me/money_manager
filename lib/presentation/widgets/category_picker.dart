@@ -641,19 +641,31 @@ class _NewCategoryForm extends StatelessWidget {
         children: [
           // Type toggle
           Row(
-            children: TransactionType.values.map((t) {
+            children: const [TransactionType.burn, TransactionType.store, TransactionType.income]
+                .asMap()
+                .entries
+                .map((entry) {
+              final idx = entry.key;
+              final t = entry.value;
+              final isLast = idx == 2;
               final isSelected = selectedType == t;
-              final color = t == TransactionType.burn
-                  ? AppTheme.burnColor
-                  : AppTheme.storeColor;
+              final color = switch (t) {
+                TransactionType.burn => AppTheme.burnColor,
+                TransactionType.income => AppTheme.incomeColor,
+                _ => AppTheme.storeColor,
+              };
+              final icon = switch (t) {
+                TransactionType.burn => Icons.local_fire_department_rounded,
+                TransactionType.income => Icons.trending_up_rounded,
+                _ => Icons.savings_rounded,
+              };
               return Expanded(
                 child: GestureDetector(
                   onTap: () => onTypeChanged(t),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     height: 38,
-                    margin: EdgeInsets.only(
-                        right: t == TransactionType.burn ? 6 : 0),
+                    margin: EdgeInsets.only(right: isLast ? 0 : 6),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? color.withValues(alpha: 0.2)
@@ -669,9 +681,7 @@ class _NewCategoryForm extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          t == TransactionType.burn
-                              ? Icons.local_fire_department_rounded
-                              : Icons.savings_rounded,
+                          icon,
                           size: 14,
                           color: isSelected ? color : Colors.white38,
                         ),

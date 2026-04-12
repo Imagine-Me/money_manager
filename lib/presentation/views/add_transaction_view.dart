@@ -31,7 +31,6 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   CategoryEntity? _selectedCategory;
   AccountEntity? _selectedAccount; // null = use primary
   AccountEntity? _toAccount; // destination for transfer type
-  bool _noFromAccount = false; // transfer: true = external source, no from account
   DateTime _selectedDate = DateTime.now();
   bool _isSaving = false;
 
@@ -196,74 +195,13 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
               // ─── Account / From + To (for transfer) ──────────────────────
               if (accounts.isNotEmpty) ...[  
                 if (_type == TransactionType.transfer) ...[  
-                  // ── From Account (optional) ──
-                  Row(
-                    children: [
-                      const _FieldLabel(label: 'From Account'),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          _noFromAccount = !_noFromAccount;
-                          if (_noFromAccount) _selectedAccount = null;
-                        }),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'External',
-                              style: TextStyle(
-                                color: _noFromAccount
-                                    ? AppTheme.primaryColor
-                                    : Colors.white38,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              _noFromAccount
-                                  ? Icons.toggle_on_rounded
-                                  : Icons.toggle_off_rounded,
-                              color: _noFromAccount
-                                  ? AppTheme.primaryColor
-                                  : Colors.white24,
-                              size: 22,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                  const _FieldLabel(label: 'From Account'),
                   const SizedBox(height: 8),
-                  if (_noFromAccount)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.input_rounded,
-                              color: Colors.white38, size: 18),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'External source (salary, gift, etc.)',
-                            style: TextStyle(
-                                color: Colors.white38, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    _AccountPicker(
-                      accounts: accounts,
-                      selected: effectiveAccount,
-                      onChanged: (a) => setState(() => _selectedAccount = a),
-                    ),
+                  _AccountPicker(
+                    accounts: accounts,
+                    selected: effectiveAccount,
+                    onChanged: (a) => setState(() => _selectedAccount = a),
+                  ),
                   const SizedBox(height: 16),
                   _FieldLabel(label: 'To Account'),
                   const SizedBox(height: 8),
@@ -380,8 +318,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
             orElse: () => accounts.last,
           );
         }
-        // When noFromAccount, don't use any from account
-        final fromAccount = _noFromAccount ? null : resolvedAccount;
+        final fromAccount = resolvedAccount;
         final fromName = fromAccount?.name ?? 'External';
         final title = '$fromName → ${resolvedTo?.name ?? 'Account'}';
         final tx = TransactionEntity(
@@ -434,7 +371,7 @@ class _AddTransactionViewState extends ConsumerState<AddTransactionView> {
   }
 }
 
-// ─── Type Toggle ───────────────────────────────────────────────────────────────
+// ─── Type Dropdown ─────────────────────────────────────────────────────────────
 
 class _TypeToggle extends StatelessWidget {
   const _TypeToggle({required this.value, required this.onChanged});
@@ -442,62 +379,121 @@ class _TypeToggle extends StatelessWidget {
   final TransactionType value;
   final ValueChanged<TransactionType> onChanged;
 
+  static IconData _icon(TransactionType t) => switch (t) {
+        TransactionType.burn => Icons.local_fire_department_rounded,
+        TransactionType.store => Icons.savings_rounded,
+        TransactionType.transfer => Icons.compare_arrows_rounded,
+        TransactionType.income => Icons.trending_up_rounded,
+      };
+
+  static Color _color(TransactionType t) => switch (t) {
+        TransactionType.burn => AppTheme.burnColor,
+        TransactionType.store => AppTheme.storeColor,
+        TransactionType.transfer => AppTheme.primaryColor,
+        TransactionType.income => AppTheme.incomeColor,
+      };
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 56,
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+    final accent = _color(value);
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<TransactionType>(
+        value: value,
+        isExpanded: true,
+        dropdownColor: AppTheme.cardElevated,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        children: TransactionType.values.map((type) {
-          final isSelected = value == type;
-          final color = switch (type) {
-            TransactionType.burn => AppTheme.burnColor,
-            TransactionType.store => AppTheme.storeColor,
-            TransactionType.transfer => AppTheme.primaryColor,
-          };
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(type),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: isSelected
-                      ? Border.all(color: color.withValues(alpha: 0.5))
-                      : null,
+        icon: Icon(Icons.keyboard_arrow_down_rounded,
+            color: accent, size: 22),
+        onChanged: (v) {
+          if (v != null) onChanged(v);
+        },
+        // ── What's shown in the field ──
+        selectedItemBuilder: (context) => TransactionType.values.map((type) {
+          final color = _color(type);
+          return Container(
+            height: 58,
+            decoration: BoxDecoration(
+              color: AppTheme.cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            alignment: Alignment.centerLeft,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(_icon(type), color: color, size: 20),
                 ),
-                child: Row(
+                const SizedBox(width: 12),
+                Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      switch (type) {
-                        TransactionType.burn =>
-                          Icons.local_fire_department_rounded,
-                        TransactionType.store => Icons.savings_rounded,
-                        TransactionType.transfer =>
-                          Icons.compare_arrows_rounded,
-                      },
-                      size: 18,
-                      color: isSelected ? color : Colors.white38,
-                    ),
-                    const SizedBox(width: 6),
                     Text(
                       type.label,
                       style: TextStyle(
-                        color: isSelected ? color : Colors.white38,
+                        color: color,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      type.description,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
                       ),
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
+          );
+        }).toList(),
+        // ── Dropdown menu items ──
+        items: TransactionType.values.map((type) {
+          final color = _color(type);
+          return DropdownMenuItem<TransactionType>(
+            value: type,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(_icon(type), color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      type.label,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      type.description,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           );
         }).toList(),

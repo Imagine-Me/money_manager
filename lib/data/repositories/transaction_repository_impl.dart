@@ -196,6 +196,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
       if (toAccountId != null) {
         await _adjustBalance(toAccountId, amount * -sign);     // add to
       }
+    } else if (type == TransactionType.income) {
+      // Income: credits the account (opposite of burn/store)
+      if (accountId != null) {
+        await _adjustBalance(accountId, amount * -sign);       // add to
+      }
     } else {
       // Burn or Store: both reduce the account balance
       if (accountId != null) {

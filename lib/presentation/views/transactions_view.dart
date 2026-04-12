@@ -51,6 +51,10 @@ class TransactionsView extends ConsumerWidget {
                     color = AppTheme.storeColor;
                     label = 'Store';
                     icon = Icons.savings_rounded;
+                  case FilterType.income:
+                    color = AppTheme.incomeColor;
+                    label = 'Income';
+                    icon = Icons.trending_up_rounded;
                 }
                 return Expanded(
                   child: Padding(

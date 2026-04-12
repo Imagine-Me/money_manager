@@ -27,6 +27,7 @@ class TransactionEntity {
   bool get isBurn => type == TransactionType.burn;
   bool get isStore => type == TransactionType.store;
   bool get isTransfer => type == TransactionType.transfer;
+  bool get isIncome => type == TransactionType.income;
 
   TransactionEntity copyWith({
     int? id,

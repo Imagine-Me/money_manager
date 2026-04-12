@@ -211,7 +211,7 @@ final categorySearchProvider =
 
 // ─── Transaction Filter ───────────────────────────────────────────────────────
 
-enum FilterType { all, burn, store }
+enum FilterType { all, burn, store, income }
 
 final filterProvider = StateProvider<FilterType>((ref) => FilterType.all);
 
@@ -227,6 +227,8 @@ final filteredTransactionProvider = Provider<AsyncValue<List<TransactionEntity>>
           transactions.where((t) => t.type == TransactionType.burn).toList(),
         FilterType.store =>
           transactions.where((t) => t.type == TransactionType.store).toList(),
+        FilterType.income =>
+          transactions.where((t) => t.type == TransactionType.income).toList(),
       };
     });
   },

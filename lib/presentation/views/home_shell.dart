@@ -6,7 +6,7 @@ import 'package:money_manager/presentation/views/accounts_view.dart';
 import 'package:money_manager/presentation/views/add_transaction_view.dart';
 import 'package:money_manager/presentation/views/dashboard_view.dart';
 import 'package:money_manager/presentation/views/recurring_view.dart';
-import 'package:money_manager/presentation/views/report_view.dart';
+import 'package:money_manager/presentation/views/report_list_view.dart';
 import 'package:money_manager/presentation/views/settings_view.dart';
 import 'package:money_manager/presentation/widgets/missed_days_sheet.dart';
 
@@ -22,7 +22,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   static const _pages = <Widget>[
     DashboardView(),
-    ReportView(),
+    ReportListView(),
     AccountsView(),
     RecurringView(),
     SettingsView(),

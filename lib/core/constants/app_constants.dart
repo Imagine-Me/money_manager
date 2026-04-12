@@ -3,23 +3,27 @@ import 'package:flutter/material.dart';
 enum TransactionType {
   burn, // Expenditure
   store, // Savings & Investments
-  transfer; // Account-to-account transfer
+  transfer, // Account-to-account transfer
+  income; // Earned income (salary, business, etc.)
 
   String get label => switch (this) {
         burn => 'Burn',
         store => 'Store',
         transfer => 'Transfer',
+        income => 'Income',
       };
   String get description => switch (this) {
         burn => 'Expenditure',
         store => 'Savings & Investments',
         transfer => 'Account Transfer',
+        income => 'Earned Income',
       };
 
   static TransactionType fromString(String value) {
     return switch (value) {
       'store' => store,
       'transfer' => transfer,
+      'income' => income,
       _ => burn,
     };
   }

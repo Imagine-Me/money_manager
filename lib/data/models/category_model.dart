@@ -6,7 +6,11 @@ part 'category_model.g.dart';
 class CategoryModel {
   Id id = Isar.autoIncrement;
 
-  @Index(unique: true, replace: false)
+  @Index(
+    composite: [CompositeIndex('type'), CompositeIndex('parentId')],
+    unique: true,
+    replace: false,
+  )
   late String name;
 
   late int colorValue;

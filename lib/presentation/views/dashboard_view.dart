@@ -4,7 +4,8 @@ import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/core/utils/currency_formatter.dart';
 import 'package:money_manager/domain/entities/report_filter_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
-import 'package:money_manager/presentation/views/report_view.dart';
+import 'package:money_manager/presentation/views/report_detail_view.dart';
+import 'package:money_manager/presentation/views/report_list_view.dart';
 import 'package:money_manager/presentation/views/transactions_view.dart';
 import 'package:money_manager/presentation/widgets/bento_card.dart';
 import 'package:money_manager/presentation/widgets/spending_pie_chart.dart';
@@ -127,15 +128,13 @@ class DashboardView extends ConsumerWidget {
                                           child: _FilterPresetChip(
                                             filter: f,
                                             onTap: () {
-                                              ref
-                                                  .read(
-                                                      pendingReportFilterProvider
-                                                          .notifier)
-                                                  .state = f;
-                                              ref
-                                                  .read(homeTabIndexProvider
-                                                      .notifier)
-                                                  .state = 1;
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ReportDetailView(
+                                                          entity: f),
+                                                ),
+                                              );
                                             },
                                             onDelete: () async {
                                               final confirm =
@@ -361,7 +360,7 @@ class DashboardView extends ConsumerWidget {
 
   void _goToReports(BuildContext context) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ReportView()),
+      MaterialPageRoute(builder: (_) => const ReportListView()),
     );
   }
 }

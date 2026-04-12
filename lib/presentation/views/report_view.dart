@@ -17,7 +17,7 @@ import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
 
 enum _Period { month, year, overall }
 
-enum _TypeTab { burn, store }
+enum _TypeTab { burn, store, income }
 
 // ─── View ─────────────────────────────────────────────────────────────────────
 
@@ -40,10 +40,11 @@ class _ReportViewState extends ConsumerState<ReportView> {
   int? _activePresetId;
   String _activePresetName = '';
 
-  TransactionType get _selectedType =>
-      _selectedTab == _TypeTab.burn
-          ? TransactionType.burn
-          : TransactionType.store;
+  TransactionType get _selectedType => switch (_selectedTab) {
+        _TypeTab.burn => TransactionType.burn,
+        _TypeTab.store => TransactionType.store,
+        _TypeTab.income => TransactionType.income,
+      };
 
   void _goBack() {
     setState(() {
@@ -211,10 +212,10 @@ class _ReportViewState extends ConsumerState<ReportView> {
           final rawBreakdown = _showSubcategories
               ? rawData.breakdownFor(_selectedType)
               : rawData.parentBreakdownFor(_selectedType);
-          // All categories for the filter sheet (not just those with txns)
+          // All categories for the filter sheet scoped to the current type
           final sheetCats = _showSubcategories
-              ? allCategories.where((c) => c.parentId != null).toList()
-              : allCategories.where((c) => c.parentId == null).toList();
+              ? allCategories.where((c) => c.parentId != null && c.type == _selectedType).toList()
+              : allCategories.where((c) => c.parentId == null && c.type == _selectedType).toList();
           final filterSheetCategories = Map.fromEntries(
             (sheetCats.map((cat) {
               final amount = rawBreakdown.entries
@@ -416,7 +417,9 @@ class _ReportViewState extends ConsumerState<ReportView> {
                           children: [
                             _cardLabel(_selectedType == TransactionType.burn
                                 ? 'WHERE MONEY WENT'
-                                : 'WHERE MONEY STORED'),
+                                : _selectedType == TransactionType.store
+                                    ? 'WHERE MONEY STORED'
+                                    : 'WHERE MONEY CAME FROM'),
                             const SizedBox(height: 20),
                             SpendingPieChart(data: selectedBreakdown),
                           ],
@@ -438,7 +441,9 @@ class _ReportViewState extends ConsumerState<ReportView> {
                                 total: data.totalFor(_selectedType),
                                 color: _selectedType == TransactionType.burn
                                     ? AppTheme.burnColor
-                                    : AppTheme.storeColor,
+                                    : _selectedType == TransactionType.store
+                                        ? AppTheme.storeColor
+                                        : AppTheme.incomeColor,
                               ),
                             ),
                           ],
@@ -598,6 +603,7 @@ class _TypeSelector extends StatelessWidget {
   static const _labels = {
     _TypeTab.burn: 'Burn',
     _TypeTab.store: 'Store',
+    _TypeTab.income: 'Income',
   };
 
   @override
@@ -607,7 +613,9 @@ class _TypeSelector extends StatelessWidget {
         final isSelected = tab == selected;
         final accent = tab == _TypeTab.burn
             ? AppTheme.burnColor
-            : AppTheme.storeColor;
+            : tab == _TypeTab.store
+                ? AppTheme.storeColor
+                : AppTheme.incomeColor;
 
         return Expanded(
           child: GestureDetector(
@@ -1673,12 +1681,16 @@ class _MonthPickerDialogState extends State<_MonthPickerDialog> {
 class _PeriodData {
   final double totalBurn;
   final double totalStore;
+  final double totalIncome;
   final int burnCount;
   final int storeCount;
+  final int incomeCount;
   final Map<CategoryEntity, double> burnBreakdown;
   final Map<CategoryEntity, double> storeBreakdown;
+  final Map<CategoryEntity, double> incomeBreakdown;
   final Map<CategoryEntity, double> burnParentBreakdown;
   final Map<CategoryEntity, double> storeParentBreakdown;
+  final Map<CategoryEntity, double> incomeParentBreakdown;
   final List<TransactionEntity> transactions;
   final List<String> barLabels;
   final List<double> barValues;
@@ -1687,12 +1699,16 @@ class _PeriodData {
   const _PeriodData({
     required this.totalBurn,
     required this.totalStore,
+    required this.totalIncome,
     required this.burnCount,
     required this.storeCount,
+    required this.incomeCount,
     required this.burnBreakdown,
     required this.storeBreakdown,
+    required this.incomeBreakdown,
     required this.burnParentBreakdown,
     required this.storeParentBreakdown,
+    required this.incomeParentBreakdown,
     required this.transactions,
     required this.barLabels,
     required this.barValues,
@@ -1782,21 +1798,30 @@ class _PeriodData {
     final totalStore = filtered
         .where((t) => t.type == TransactionType.store)
         .fold(0.0, (s, t) => s + t.amount);
+    final totalIncome = filtered
+        .where((t) => t.type == TransactionType.income)
+        .fold(0.0, (s, t) => s + t.amount);
 
     final burnBreakdown = _breakdown(filtered, TransactionType.burn);
     final storeBreakdown = _breakdown(filtered, TransactionType.store);
+    final incomeBreakdown = _breakdown(filtered, TransactionType.income);
 
     return _PeriodData(
       totalBurn: totalBurn,
       totalStore: totalStore,
+      totalIncome: totalIncome,
       burnCount:
           filtered.where((t) => t.type == TransactionType.burn).length,
       storeCount:
           filtered.where((t) => t.type == TransactionType.store).length,
+      incomeCount:
+          filtered.where((t) => t.type == TransactionType.income).length,
       burnBreakdown: burnBreakdown,
       storeBreakdown: storeBreakdown,
+      incomeBreakdown: incomeBreakdown,
       burnParentBreakdown: _parentBreakdown(burnBreakdown, allCategories),
       storeParentBreakdown: _parentBreakdown(storeBreakdown, allCategories),
+      incomeParentBreakdown: _parentBreakdown(incomeBreakdown, allCategories),
       transactions: filtered,
       barLabels: labels,
       barValues: values,
@@ -1804,23 +1829,35 @@ class _PeriodData {
     );
   }
 
-  double totalFor(TransactionType type) {
-    return type == TransactionType.burn ? totalBurn : totalStore;
-  }
+  double totalFor(TransactionType type) => switch (type) {
+        TransactionType.burn => totalBurn,
+        TransactionType.store => totalStore,
+        TransactionType.income => totalIncome,
+        _ => 0,
+      };
 
-  int countFor(TransactionType type) {
-    return type == TransactionType.burn ? burnCount : storeCount;
-  }
+  int countFor(TransactionType type) => switch (type) {
+        TransactionType.burn => burnCount,
+        TransactionType.store => storeCount,
+        TransactionType.income => incomeCount,
+        _ => 0,
+      };
 
-  Map<CategoryEntity, double> breakdownFor(TransactionType type) {
-    return type == TransactionType.burn ? burnBreakdown : storeBreakdown;
-  }
+  Map<CategoryEntity, double> breakdownFor(TransactionType type) =>
+      switch (type) {
+        TransactionType.burn => burnBreakdown,
+        TransactionType.store => storeBreakdown,
+        TransactionType.income => incomeBreakdown,
+        _ => {},
+      };
 
-  Map<CategoryEntity, double> parentBreakdownFor(TransactionType type) {
-    return type == TransactionType.burn
-        ? burnParentBreakdown
-        : storeParentBreakdown;
-  }
+  Map<CategoryEntity, double> parentBreakdownFor(TransactionType type) =>
+      switch (type) {
+        TransactionType.burn => burnParentBreakdown,
+        TransactionType.store => storeParentBreakdown,
+        TransactionType.income => incomeParentBreakdown,
+        _ => {},
+      };
 
   static Map<CategoryEntity, double> _breakdown(
       List<TransactionEntity> txns, TransactionType type) {
@@ -1930,6 +1967,7 @@ String _periodStr(_Period p) => switch (p) {
 String _typeTabStr(_TypeTab t) => switch (t) {
       _TypeTab.burn => 'burn',
       _TypeTab.store => 'store',
+      _TypeTab.income => 'income',
     };
 
 _Period _periodFromStr(String s) => switch (s) {
@@ -1938,8 +1976,11 @@ _Period _periodFromStr(String s) => switch (s) {
       _ => _Period.month,
     };
 
-_TypeTab _typeTabFromStr(String s) =>
-    s == 'store' ? _TypeTab.store : _TypeTab.burn;
+_TypeTab _typeTabFromStr(String s) => switch (s) {
+      'store' => _TypeTab.store,
+      'income' => _TypeTab.income,
+      _ => _TypeTab.burn,
+    };
 
 // ─── Save preset button ───────────────────────────────────────────────────────
 

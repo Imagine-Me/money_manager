@@ -19,10 +19,15 @@ class TransactionListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTransfer = transaction.isTransfer;
     final isBurn = transaction.isBurn;
+    final isIncome = transaction.isIncome;
     final amountColor = isTransfer
         ? AppTheme.primaryColor
-        : (isBurn ? AppTheme.burnColor : AppTheme.storeColor);
-    final amountPrefix = isTransfer ? '⇄ ' : (isBurn ? '-' : '+');
+        : isBurn
+            ? AppTheme.burnColor
+            : isIncome
+                ? AppTheme.incomeColor
+                : AppTheme.storeColor;
+    final amountPrefix = isTransfer ? '⇄ ' : isBurn ? '-' : '+';
     final cat = transaction.category;
 
     return Dismissible(
@@ -161,7 +166,9 @@ class TransactionListTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isBurn
                           ? AppTheme.burnColor.withValues(alpha: 0.12)
-                          : AppTheme.storeColor.withValues(alpha: 0.12),
+                          : isIncome
+                              ? AppTheme.incomeColor.withValues(alpha: 0.12)
+                              : AppTheme.storeColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(

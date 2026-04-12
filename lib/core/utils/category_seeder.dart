@@ -44,9 +44,30 @@ class CategorySeeder {
         _parent('Loans & EMI', const Color(0xFFFF7043), Icons.account_balance_wallet_rounded, 'burn'),
       );
 
-      // ── STORE parents ─────────────────────────────────────────────────────
+      // ── INCOME parents ────────────────────────────────────────────────────
       await isar.categoryModels.put(
-        _parent('Salary', const Color(0xFF66BB6A), Icons.payments_rounded, 'store'),
+        _parent('Salary', const Color(0xFF66BB6A), Icons.payments_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Business', const Color(0xFFFFB300), Icons.business_center_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Mutual Fund', const Color(0xFF42A5F5), Icons.pie_chart_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('App Revenue', const Color(0xFFAB47BC), Icons.smartphone_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Gifts Received', const Color(0xFFE91E63), Icons.card_giftcard_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Rental Income', const Color(0xFF26C6DA), Icons.home_work_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Trade', const Color(0xFF26C6DA), Icons.candlestick_chart_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Savings', const Color(0xFF4ECDC4), Icons.savings_rounded, 'store'),
       );
       final freelanceId = await isar.categoryModels.put(
         _parent('Freelance', const Color(0xFF26A69A), Icons.laptop_mac, 'store'),
@@ -176,6 +197,72 @@ class CategorySeeder {
         ('Real Estate', Icons.domain_rounded),
       ]);
     });
+  }
+
+  // ── Migration: add Income categories for existing users ──────────────────
+
+  /// Adds income-type categories if they don't already exist.
+  /// Safe to call on every startup — no-ops if already present.
+  static Future<void> seedIncome(Isar isar) async {
+    final existing = await isar.categoryModels
+        .filter()
+        .typeEqualTo('income')
+        .findFirst();
+    if (existing != null) return;
+
+    await isar.writeTxn(() async {
+      await isar.categoryModels.put(
+        _parent('Salary', const Color(0xFF66BB6A), Icons.payments_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Business', const Color(0xFFFFB300), Icons.business_center_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Mutual Fund', const Color(0xFF42A5F5), Icons.pie_chart_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('App Revenue', const Color(0xFFAB47BC), Icons.smartphone_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Gifts Received', const Color(0xFFE91E63), Icons.card_giftcard_rounded, 'income'),
+      );
+      await isar.categoryModels.put(
+        _parent('Rental Income', const Color(0xFF26C6DA), Icons.home_work_rounded, 'income'),
+      );
+    });
+  }
+
+  // ── Migration: ensure all income categories exist ─────────────────────────
+
+  /// Inserts each income category individually if it doesn't already exist.
+  /// Safe to call on every startup even when data is already present —
+  /// only missing entries are written.
+  static Future<void> seedMissingIncome(Isar isar) async {
+    final desired = [
+      ('Salary',         const Color(0xFF66BB6A), Icons.payments_rounded),
+      ('Business',       const Color(0xFFFFB300), Icons.business_center_rounded),
+      ('Mutual Fund',    const Color(0xFF42A5F5), Icons.pie_chart_rounded),
+      ('App Revenue',    const Color(0xFFAB47BC), Icons.smartphone_rounded),
+      ('Gifts Received', const Color(0xFFE91E63), Icons.card_giftcard_rounded),
+      ('Rental Income',  const Color(0xFF26C6DA), Icons.home_work_rounded),
+      ('Freelance',      const Color(0xFF26A69A), Icons.laptop_mac),
+      ('Dividends',      const Color(0xFF42A5F5), Icons.show_chart_rounded),
+      ('Interest',       const Color(0xFF4ECDC4), Icons.account_balance_rounded),
+      ('Trade',          const Color(0xFF26C6DA), Icons.candlestick_chart_rounded),
+    ];
+
+    for (final (name, color, icon) in desired) {
+      final exists = await isar.categoryModels
+          .filter()
+          .nameEqualTo(name)
+          .typeEqualTo('income')
+          .findFirst();
+      if (exists != null) continue;
+
+      await isar.writeTxn(() async {
+        await isar.categoryModels.put(_parent(name, color, icon, 'income'));
+      });
+    }
   }
 
   // ── Migration: add Loans & EMI for existing users ─────────────────────────
