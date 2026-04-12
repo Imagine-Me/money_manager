@@ -5,6 +5,7 @@ import 'package:money_manager/core/services/preferences_service.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
 import 'package:money_manager/services/backup_service.dart';
 import 'package:money_manager/services/google_auth_service.dart';
+import 'package:money_manager/services/notification_service.dart';
 
 class SettingsView extends StatefulWidget {
   const SettingsView({super.key});
@@ -16,6 +17,8 @@ class SettingsView extends StatefulWidget {
 class _SettingsViewState extends State<SettingsView> {
   GoogleSignInAccount? _user;
   bool _isLoading = false;
+  bool _notifEnabled = true;
+  TimeOfDay _notifTime = const TimeOfDay(hour: 21, minute: 0);
   String? _statusMessage;
   bool _statusIsError = false;
 
@@ -23,9 +26,62 @@ class _SettingsViewState extends State<SettingsView> {
   void initState() {
     super.initState();
     _user = GoogleAuthService.instance.currentUser;
+    final prefs = PreferencesService.instance;
+    _notifEnabled = prefs.notificationEnabled;
+    _notifTime = TimeOfDay(
+      hour: prefs.notificationHour,
+      minute: prefs.notificationMinute,
+    );
     if (_user == null) {
       _trySilentSignIn();
     }
+  }
+
+  Future<void> _setNotificationEnabled(bool enabled) async {
+    final prefs = PreferencesService.instance;
+    await prefs.setNotificationEnabled(enabled);
+    if (enabled) {
+      await NotificationService.instance.requestPermissions();
+      await NotificationService.instance.scheduleDailyReminder();
+    } else {
+      await NotificationService.instance.cancelDailyReminder();
+    }
+    if (!mounted) return;
+    setState(() => _notifEnabled = enabled);
+    _setStatus(
+      enabled
+          ? 'Daily reminder enabled'
+          : 'Daily reminder disabled',
+      isError: false,
+    );
+  }
+
+  Future<void> _pickNotificationTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _notifTime,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(context).colorScheme.copyWith(
+                primary: AppTheme.primaryColor,
+              ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null) return;
+
+    final prefs = PreferencesService.instance;
+    await prefs.setNotificationTime(hour: picked.hour, minute: picked.minute);
+    if (_notifEnabled) {
+      await NotificationService.instance.scheduleDailyReminder();
+    }
+    if (!mounted) return;
+    setState(() => _notifTime = picked);
+    _setStatus(
+      'Reminder time updated to ${picked.format(context)}',
+      isError: false,
+    );
   }
 
   Future<void> _trySilentSignIn() async {
@@ -157,6 +213,13 @@ class _SettingsViewState extends State<SettingsView> {
             _sectionHeader('Google Drive Backup'),
             const SizedBox(height: 8),
             _driveCard(),
+
+            const SizedBox(height: 28),
+
+            // ── Notifications section ─────────────────────────────────────
+            _sectionHeader('Notifications'),
+            const SizedBox(height: 8),
+            _notificationCard(),
 
             if (_statusMessage != null) ...[
               const SizedBox(height: 12),
@@ -380,6 +443,49 @@ class _SettingsViewState extends State<SettingsView> {
                 fontSize: 13,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _notificationCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile.adaptive(
+            value: _notifEnabled,
+            onChanged: (v) => _setNotificationEnabled(v),
+            activeThumbColor: AppTheme.primaryColor,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            title: const Text(
+              'Daily Reminder',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            subtitle: Text(
+              _notifEnabled
+                  ? 'Enabled at ${_notifTime.format(context)}'
+                  : 'Disabled',
+              style: const TextStyle(color: Colors.white38, fontSize: 13),
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white10),
+          _actionTile(
+            icon: Icons.schedule_rounded,
+            label: 'Reminder Time: ${_notifTime.format(context)}',
+            color: _notifEnabled ? AppTheme.primaryColor : Colors.white38,
+            onTap: _notifEnabled ? _pickNotificationTime : null,
+            isLoading: false,
           ),
         ],
       ),

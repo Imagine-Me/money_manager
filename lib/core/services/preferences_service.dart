@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:money_manager/core/constants/app_constants.dart';
 
 class PreferencesService {
   PreferencesService._();
@@ -13,6 +14,9 @@ class PreferencesService {
   static const _keyInstalledDate = 'installed_date';
   static const _keyDismissedMissedDays = 'dismissed_missed_days';
   static const _keyLastBackupDate = 'last_backup_date';
+  static const _keyNotifEnabled = 'notif_enabled';
+  static const _keyNotifHour = 'notif_hour';
+  static const _keyNotifMinute = 'notif_minute';
 
   late SharedPreferences _prefs;
 
@@ -20,12 +24,20 @@ class PreferencesService {
   late String currencySymbol;
   late String currencyName;
   late String currencyLocale;
+  late bool notificationEnabled;
+  late int notificationHour;
+  late int notificationMinute;
 
   Future<void> load() async {
     _prefs = await SharedPreferences.getInstance();
     currencySymbol = _prefs.getString(_keyCurrencySymbol) ?? '₹';
     currencyName = _prefs.getString(_keyCurrencyName) ?? 'Indian Rupee';
     currencyLocale = _prefs.getString(_keyCurrencyLocale) ?? 'en_IN';
+    notificationEnabled = _prefs.getBool(_keyNotifEnabled) ?? true;
+    notificationHour =
+      _prefs.getInt(_keyNotifHour) ?? AppConstants.dailyReminderHour;
+    notificationMinute =
+      _prefs.getInt(_keyNotifMinute) ?? AppConstants.dailyReminderMinute;
     // Record install date on first ever launch
     if (!_prefs.containsKey(_keyInstalledDate)) {
       await _prefs.setString(
@@ -72,6 +84,21 @@ class PreferencesService {
 
   Future<void> setLastBackupDate(DateTime date) async {
     await _prefs.setString(_keyLastBackupDate, date.toIso8601String());
+  }
+
+  Future<void> setNotificationEnabled(bool enabled) async {
+    notificationEnabled = enabled;
+    await _prefs.setBool(_keyNotifEnabled, enabled);
+  }
+
+  Future<void> setNotificationTime({
+    required int hour,
+    required int minute,
+  }) async {
+    notificationHour = hour;
+    notificationMinute = minute;
+    await _prefs.setInt(_keyNotifHour, hour);
+    await _prefs.setInt(_keyNotifMinute, minute);
   }
 
   Future<void> saveCurrency({

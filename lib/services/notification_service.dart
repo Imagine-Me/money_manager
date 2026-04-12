@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:money_manager/core/services/preferences_service.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:money_manager/core/constants/app_constants.dart';
@@ -17,6 +19,7 @@ class NotificationService {
 
   Future<void> initialize() async {
     tz.initializeTimeZones();
+    await _configureLocalTimezone();
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -32,6 +35,15 @@ class NotificationService {
     );
 
     await _plugin.initialize(settings: initSettings);
+  }
+
+  Future<void> _configureLocalTimezone() async {
+    try {
+      final timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+    } catch (_) {
+      // Keep default tz.local if device timezone lookup fails.
+    }
   }
 
   Future<bool> requestPermissions() async {
@@ -58,7 +70,13 @@ class NotificationService {
   Future<void> scheduleDailyReminder() async {
     await _plugin.cancel(id: AppConstants.notificationId);
 
-    final scheduledDate = _nextInstanceOf9PM();
+    final prefs = PreferencesService.instance;
+    if (!prefs.notificationEnabled) return;
+
+    final scheduledDate = _nextInstanceOf(
+      prefs.notificationHour,
+      prefs.notificationMinute,
+    );
 
     const androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -95,15 +113,15 @@ class NotificationService {
     await _plugin.cancel(id: AppConstants.notificationId);
   }
 
-  tz.TZDateTime _nextInstanceOf9PM() {
+  tz.TZDateTime _nextInstanceOf(int hour, int minute) {
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
       tz.local,
       now.year,
       now.month,
       now.day,
-      AppConstants.dailyReminderHour,
-      AppConstants.dailyReminderMinute,
+      hour,
+      minute,
     );
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
