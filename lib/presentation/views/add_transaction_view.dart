@@ -768,80 +768,89 @@ class _AccountPicker extends StatelessWidget {
                   ),
                 ),
               ),
-              ...accounts.map((account) {
-                final isSelected = selected?.id == account.id;
-                return ListTile(
-                  leading: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: account.color.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: BankLogo(
-                          bank: account.bank,
-                          color: account.color,
-                          size: 40,
-                        ),
-                      ),
-                      if (account.isPrimary)
-                        Positioned(
-                          top: -3,
-                          right: -3,
-                          child: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: const BoxDecoration(
-                              color: AppTheme.goldAccent,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.star_rounded,
-                                color: Colors.black, size: 9),
-                          ),
-                        ),
-                    ],
-                  ),
-                  title: Text(
-                    account.name,
-                    style: TextStyle(
-                      color: isSelected ? account.color : Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: account.bank != null
-                      ? Text(
-                          account.bank!.name,
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 12),
-                        )
-                      : null,
-                  trailing: Row(
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        '₹${account.balance.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          color: account.color,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                        ),
-                      ),
-                      if (isSelected) ...[
-                        const SizedBox(width: 8),
-                        Icon(Icons.check_circle_rounded,
-                            color: account.color, size: 18),
-                      ],
+                      ...accounts.map((account) {
+                        final isSelected = selected?.id == account.id;
+                        return ListTile(
+                          leading: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: account.color.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: BankLogo(
+                                  bank: account.bank,
+                                  color: account.color,
+                                  size: 40,
+                                ),
+                              ),
+                              if (account.isPrimary)
+                                Positioned(
+                                  top: -3,
+                                  right: -3,
+                                  child: Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.goldAccent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.star_rounded,
+                                        color: Colors.black, size: 9),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          title: Text(
+                            account.name,
+                            style: TextStyle(
+                              color: isSelected ? account.color : Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: account.bank != null
+                              ? Text(
+                                  account.bank!.name,
+                                  style: const TextStyle(
+                                      color: Colors.white38, fontSize: 12),
+                                )
+                              : null,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '₹${account.balance.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  color: account.color,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 8),
+                                Icon(Icons.check_circle_rounded,
+                                    color: account.color, size: 18),
+                              ],
+                            ],
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            onChanged(account);
+                          },
+                        );
+                      }),
                     ],
                   ),
-                  onTap: () {
-                    Navigator.pop(context);
-                    onChanged(account);
-                  },
-                );
-              }),
+                ),
+              ),
               const SizedBox(height: 8),
             ],
           ),
