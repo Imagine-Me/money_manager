@@ -8,15 +8,17 @@ class ReportMonthlySavingsChartCard extends StatelessWidget {
     required this.title,
     required this.chartHeight,
     required this.chart,
+    this.onTap,
   });
 
   final String title;
   final double chartHeight;
   final Widget chart;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(20),
@@ -41,6 +43,15 @@ class ReportMonthlySavingsChartCard extends StatelessWidget {
             child: chart,
           ),
         ],
+      ),
+    );
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: card,
       ),
     );
   }

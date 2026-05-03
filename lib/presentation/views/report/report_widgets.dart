@@ -309,19 +309,22 @@ class DrillToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Text(
-          'VIEW BY',
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.8,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+      child: Row(
+        children: [
+          const Text(
+            'VIEW BY',
+            style: TextStyle(
+              color: Colors.white38,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
           ),
-        ),
-        const Spacer(),
-        Container(
+          const SizedBox(width: 14),
+          const Spacer(),
+          Container(
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             color: AppTheme.cardColor,
@@ -337,7 +340,8 @@ class DrillToggle extends StatelessWidget {
             ],
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 

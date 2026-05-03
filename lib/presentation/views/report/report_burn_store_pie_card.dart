@@ -11,12 +11,18 @@ class ReportBurnStorePieCard extends StatefulWidget {
     required this.subtitle,
     required this.burnTotal,
     required this.storeTotal,
+    this.onTap,
+    this.largeHero = false,
   });
 
   final String title;
   final String subtitle;
   final double burnTotal;
   final double storeTotal;
+  final VoidCallback? onTap;
+
+  /// Taller chart and pie for detail / hero layouts.
+  final bool largeHero;
 
   @override
   State<ReportBurnStorePieCard> createState() => _ReportBurnStorePieCardState();
@@ -30,8 +36,12 @@ class _ReportBurnStorePieCardState extends State<ReportBurnStorePieCard> {
     final burn = widget.burnTotal;
     final store = widget.storeTotal;
     final total = burn + store;
+    final pieSide = widget.largeHero ? 158.0 : 136.0;
+    final centerR = widget.largeHero ? 40.0 : 34.0;
+    final sectionRadius = widget.largeHero ? 46.0 : 42.0;
+    final sectionRadiusTouched = widget.largeHero ? 52.0 : 48.0;
 
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(20),
@@ -75,8 +85,8 @@ class _ReportBurnStorePieCardState extends State<ReportBurnStorePieCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
-                  width: 136,
-                  height: 136,
+                  width: pieSide,
+                  height: pieSide,
                   child: PieChart(
                     PieChartData(
                       pieTouchData: PieTouchData(
@@ -92,10 +102,16 @@ class _ReportBurnStorePieCardState extends State<ReportBurnStorePieCard> {
                           });
                         },
                       ),
-                      centerSpaceRadius: 34,
+                      centerSpaceRadius: centerR,
                       centerSpaceColor: AppTheme.cardColor,
                       sectionsSpace: 2,
-                      sections: _sections(burn, store, total),
+                      sections: _sections(
+                        burn,
+                        store,
+                        total,
+                        sectionRadius,
+                        sectionRadiusTouched,
+                      ),
                     ),
                   ),
                 ),
@@ -134,9 +150,24 @@ class _ReportBurnStorePieCardState extends State<ReportBurnStorePieCard> {
         ],
       ),
     );
+    if (widget.onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: widget.onTap,
+        child: card,
+      ),
+    );
   }
 
-  List<PieChartSectionData> _sections(double burn, double store, double total) {
+  List<PieChartSectionData> _sections(
+    double burn,
+    double store,
+    double total,
+    double radius,
+    double radiusTouched,
+  ) {
     final out = <PieChartSectionData>[];
     if (burn > 0) {
       final i = out.length;
@@ -146,7 +177,7 @@ class _ReportBurnStorePieCardState extends State<ReportBurnStorePieCard> {
         PieChartSectionData(
           value: burn,
           color: AppTheme.burnColor,
-          radius: touched ? 48 : 42,
+          radius: touched ? radiusTouched : radius,
           title: touched ? '${pct.toStringAsFixed(1)}%' : '',
           titleStyle: const TextStyle(
             color: Colors.white,
@@ -164,7 +195,7 @@ class _ReportBurnStorePieCardState extends State<ReportBurnStorePieCard> {
         PieChartSectionData(
           value: store,
           color: AppTheme.storeColor,
-          radius: touched ? 48 : 42,
+          radius: touched ? radiusTouched : radius,
           title: touched ? '${pct.toStringAsFixed(1)}%' : '',
           titleStyle: const TextStyle(
             color: Colors.white,

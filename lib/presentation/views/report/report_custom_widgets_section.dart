@@ -15,12 +15,14 @@ class ReportCustomWidgetsSection extends ConsumerStatefulWidget {
     required this.selectedDate,
     required this.now,
     required this.transactions,
+    this.onCustomReportTap,
   });
 
   final ReportPeriod period;
   final DateTime selectedDate;
   final DateTime now;
   final List<TransactionEntity> transactions;
+  final void Function(CustomReportWidgetEntity entity)? onCustomReportTap;
 
   @override
   ConsumerState<ReportCustomWidgetsSection> createState() =>
@@ -124,7 +126,7 @@ class _ReportCustomWidgetsSectionState
   }
 
   Widget _buildCard(CustomReportWidgetEntity e, {required bool reordering}) {
-    return ReportCustomSpendCard(
+    final card = ReportCustomSpendCard(
       entity: e,
       transactions: widget.transactions,
       period: widget.period,
@@ -133,6 +135,18 @@ class _ReportCustomWidgetsSectionState
       onDelete: () => _confirmDelete(e),
       onEdit: () => _openSheet(editing: e),
       showDragHandle: reordering,
+    );
+    if (reordering ||
+        widget.onCustomReportTap == null) {
+      return card;
+    }
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => widget.onCustomReportTap!(e),
+        child: card,
+      ),
     );
   }
 

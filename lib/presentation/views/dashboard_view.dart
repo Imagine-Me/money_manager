@@ -82,10 +82,10 @@ class DashboardView extends ConsumerWidget {
 
                   // ─── Row 3: Month vs month daily burn (line) ───────────────
                   analyticsAsync.when(
-                    loading: () => const _SkeletonBox(height: 280),
+                    loading: () => const _SkeletonBox(height: 210),
                     error: (_, _) => const SizedBox.shrink(),
                     data: (analytics) => BentoCard(
-                      height: 280,
+                      height: 210,
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

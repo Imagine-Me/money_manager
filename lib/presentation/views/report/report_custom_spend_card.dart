@@ -57,6 +57,7 @@ class ReportCustomSpendCard extends StatelessWidget {
     required this.onDelete,
     this.onEdit,
     this.showDragHandle = false,
+    this.chartSectionHeight = 120,
   });
 
   final CustomReportWidgetEntity entity;
@@ -67,6 +68,9 @@ class ReportCustomSpendCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback? onEdit;
   final bool showDragHandle;
+
+  /// Height of the line chart area (detail hero uses a taller value).
+  final double chartSectionHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -410,7 +414,7 @@ class ReportCustomSpendCard extends StatelessWidget {
             ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 120,
+            height: chartSectionHeight,
             child: chart,
           ),
         ],

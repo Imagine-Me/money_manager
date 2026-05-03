@@ -12,6 +12,7 @@ class ReportPortfolioSummaryPanel extends StatelessWidget {
     required this.netChangeDelta,
     required this.chartHeight,
     required this.chart,
+    this.onTap,
   });
 
   final int accountCount;
@@ -20,6 +21,7 @@ class ReportPortfolioSummaryPanel extends StatelessWidget {
   final double netChangeDelta;
   final double chartHeight;
   final Widget chart;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +34,7 @@ class ReportPortfolioSummaryPanel extends StatelessWidget {
         ? '+${CurrencyFormatter.format(netChangeDelta)}'
         : CurrencyFormatter.format(netChangeDelta);
 
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(20),
@@ -119,6 +121,15 @@ class ReportPortfolioSummaryPanel extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: card,
       ),
     );
   }
