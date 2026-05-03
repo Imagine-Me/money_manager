@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:money_manager/core/theme/app_theme.dart';
+import 'package:money_manager/domain/usecases/analytics_engine.dart';
 import 'package:money_manager/core/utils/currency_formatter.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/views/report_list_view.dart';
@@ -8,7 +10,16 @@ import 'package:money_manager/presentation/views/transactions_view.dart';
 import 'package:money_manager/presentation/widgets/bento_card.dart';
 import 'package:money_manager/presentation/widgets/spending_pie_chart.dart';
 import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
+import 'package:money_manager/presentation/widgets/month_compare_line_chart.dart';
 import 'package:money_manager/presentation/widgets/weekly_bar_chart.dart';
+
+String _monthVsMonthTitle(MonthOverMonthDailySpend m) {
+  final prev =
+      DateFormat('MMMM').format(DateTime(m.previousYear, m.previousMonth));
+  final curr =
+      DateFormat('MMMM').format(DateTime(m.currentYear, m.currentMonth));
+  return '$prev vs $curr';
+}
 
 class DashboardView extends ConsumerWidget {
   const DashboardView({super.key});
@@ -38,67 +49,7 @@ class DashboardView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // ─── Row 2: Burn + Store (half + half) ─────────────────────
-                  analyticsAsync.when(
-                    loading: () => Row(children: [
-                      Expanded(child: _SkeletonBox(height: 100)),
-                      const SizedBox(width: 12),
-                      Expanded(child: _SkeletonBox(height: 100)),
-                    ]),
-                    error: (_, _) => const SizedBox.shrink(),
-                    data: (analytics) => Row(
-                      children: [
-                        Expanded(
-                          child: StatBentoCard(
-                            label: 'BURN',
-                            value: CurrencyFormatter.formatCompact(
-                                analytics.monthlyBurn),
-                            icon: Icons.local_fire_department_rounded,
-                            iconColor: AppTheme.burnColor,
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.burnColor.withValues(alpha: 0.25),
-                                AppTheme.cardColor,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            subtitle: Text(
-                              'Expenditure',
-                              style: const TextStyle(
-                                  color: Colors.white38, fontSize: 11),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: StatBentoCard(
-                            label: 'STORE',
-                            value: CurrencyFormatter.formatCompact(
-                                analytics.monthlyStore),
-                            icon: Icons.savings_rounded,
-                            iconColor: AppTheme.storeColor,
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.storeColor.withValues(alpha: 0.25),
-                                AppTheme.cardColor,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            subtitle: Text(
-                              'Savings',
-                              style: const TextStyle(
-                                  color: Colors.white38, fontSize: 11),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // ─── Row 3: Weekly Chart (full-width) ─────────────────────
+                  // ─── Row 2: Weekly Chart (full-width) ─────────────────────
                   analyticsAsync.when(
                     loading: () => _SkeletonBox(height: 180),
                     error: (_, _) => const SizedBox.shrink(),
@@ -121,6 +72,37 @@ class DashboardView extends ConsumerWidget {
                           Expanded(
                             child: WeeklyBarChart(
                               weeklyData: analytics.weeklySpend,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ─── Row 3: Month vs month daily burn (line) ───────────────
+                  analyticsAsync.when(
+                    loading: () => const _SkeletonBox(height: 280),
+                    error: (_, _) => const SizedBox.shrink(),
+                    data: (analytics) => BentoCard(
+                      height: 280,
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _monthVsMonthTitle(analytics.monthOverMonthDaily),
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: MonthCompareLineChart(
+                              data: analytics.monthOverMonthDaily,
                             ),
                           ),
                         ],

@@ -95,6 +95,8 @@ final analyticsProvider = Provider<AsyncValue<AppAnalytics>>((ref) {
           totalStore: engine.getTotalStore(transactions),
           delta: engine.calculateDelta(transactions),
           weeklySpend: engine.getWeeklySpend(transactions),
+          monthOverMonthDaily:
+              engine.getMonthOverMonthDailyBurn(transactions),
           burnCategoryBreakdown: engine.getCategoryBreakdown(
             transactions, type: TransactionType.burn,
           ),
@@ -129,6 +131,7 @@ class _Analytics {
   final double totalStore;
   final double delta;
   final List<double> weeklySpend;
+  final MonthOverMonthDailySpend monthOverMonthDaily;
   final Map<CategoryEntity, double> burnCategoryBreakdown;
   final Map<CategoryEntity, double> storeCategoryBreakdown;
   final Map<CategoryEntity, double> burnParentBreakdown;
@@ -146,6 +149,7 @@ class _Analytics {
     required this.totalStore,
     required this.delta,
     required this.weeklySpend,
+    required this.monthOverMonthDaily,
     required this.burnCategoryBreakdown,
     required this.storeCategoryBreakdown,
     required this.burnParentBreakdown,

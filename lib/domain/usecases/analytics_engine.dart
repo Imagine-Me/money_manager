@@ -146,4 +146,66 @@ class AnalyticsEngine {
     final daysFromMonday = date.weekday - 1;
     return DateTime(date.year, date.month, date.day - daysFromMonday);
   }
+
+  /// Per–calendar-day burn for the previous month vs the current month.
+  /// The month-vs-month chart sums these into cumulative (running) totals.
+  MonthOverMonthDailySpend getMonthOverMonthDailyBurn(
+    List<TransactionEntity> transactions,
+  ) {
+    final now = DateTime.now();
+    final cy = now.year;
+    final cm = now.month;
+    final cd = now.day;
+
+    final prev = DateTime(cy, cm - 1);
+    final py = prev.year;
+    final pm = prev.month;
+    final daysPrev = DateTime(py, pm + 1, 0).day;
+    final daysCurr = DateTime(cy, cm + 1, 0).day;
+
+    final prevDaily = List<double>.filled(daysPrev, 0);
+    final currDaily = List<double>.filled(daysCurr, 0);
+
+    for (final t in transactions) {
+      if (t.type != TransactionType.burn) continue;
+      final d = DateTime(t.date.year, t.date.month, t.date.day);
+      if (d.year == py && d.month == pm) {
+        prevDaily[d.day - 1] += t.amount;
+      } else if (d.year == cy && d.month == cm) {
+        currDaily[d.day - 1] += t.amount;
+      }
+    }
+
+    return MonthOverMonthDailySpend(
+      previousYear: py,
+      previousMonth: pm,
+      previousMonthDaily: prevDaily,
+      currentYear: cy,
+      currentMonth: cm,
+      currentMonthDaily: currDaily,
+      todayDay: cd.clamp(1, daysCurr),
+    );
+  }
+}
+
+/// Daily burn per calendar day (index 0 = day 1). Cumulative series is derived in UI.
+class MonthOverMonthDailySpend {
+  const MonthOverMonthDailySpend({
+    required this.previousYear,
+    required this.previousMonth,
+    required this.previousMonthDaily,
+    required this.currentYear,
+    required this.currentMonth,
+    required this.currentMonthDaily,
+    required this.todayDay,
+  });
+
+  final int previousYear;
+  final int previousMonth;
+  final List<double> previousMonthDaily;
+  final int currentYear;
+  final int currentMonth;
+  final List<double> currentMonthDaily;
+  /// Current calendar day (1-based), clamped to this month’s length.
+  final int todayDay;
 }
