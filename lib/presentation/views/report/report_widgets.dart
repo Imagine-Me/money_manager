@@ -149,14 +149,22 @@ class DateNavigator extends StatelessWidget {
     required this.label,
     required this.onPrev,
     this.onNext,
+    this.compact = false,
   });
 
   final String label;
   final VoidCallback onPrev;
   final VoidCallback? onNext;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    final labelStyle = TextStyle(
+      color: Colors.white70,
+      fontSize: compact ? 12 : 13,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.2,
+    );
     return Row(
       children: [
         _navBtn(Icons.chevron_left, onPrev),
@@ -164,12 +172,9 @@ class DateNavigator extends StatelessWidget {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
-            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: labelStyle,
           ),
         ),
         _navBtn(Icons.chevron_right, onNext),
@@ -182,16 +187,115 @@ class DateNavigator extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.all(6),
+            padding: EdgeInsets.all(compact ? 4 : 6),
             decoration: BoxDecoration(
               color: AppTheme.cardColor,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(compact ? 7 : 8),
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            child: Icon(icon, color: Colors.white70, size: 16),
+            child: Icon(icon, color: Colors.white70, size: compact ? 15 : 16),
           ),
         ),
       );
+}
+
+// ─── Compact period + date row (reports) ─────────────────────────────────────
+
+/// Single row: short period control + date navigation (or subtitle for overall).
+class CompactReportPeriodHeader extends StatelessWidget {
+  const CompactReportPeriodHeader({
+    super.key,
+    required this.period,
+    required this.onPeriodChanged,
+    required this.dateLabel,
+    required this.onPrev,
+    required this.onNext,
+    required this.showNavigator,
+  });
+
+  final ReportPeriod period;
+  final ValueChanged<ReportPeriod> onPeriodChanged;
+  final String dateLabel;
+  final VoidCallback onPrev;
+  final VoidCallback? onNext;
+  final bool showNavigator;
+
+  static ButtonStyle _segmentStyle() {
+    return SegmentedButton.styleFrom(
+      backgroundColor: AppTheme.cardColor,
+      selectedBackgroundColor: AppTheme.primaryColor,
+      selectedForegroundColor: Colors.white,
+      foregroundColor: Colors.white54,
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      textStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SegmentedButton<ReportPeriod>(
+          showSelectedIcon: false,
+          style: _segmentStyle(),
+          segments: const [
+            ButtonSegment<ReportPeriod>(
+              value: ReportPeriod.month,
+              label: Text('Mo'),
+              tooltip: 'Month',
+            ),
+            ButtonSegment<ReportPeriod>(
+              value: ReportPeriod.year,
+              label: Text('Yr'),
+              tooltip: 'Year',
+            ),
+            ButtonSegment<ReportPeriod>(
+              value: ReportPeriod.overall,
+              label: Text('All'),
+              tooltip: 'Overall',
+            ),
+          ],
+          selected: {period},
+          onSelectionChanged: (next) {
+            if (next.isEmpty) return;
+            onPeriodChanged(next.first);
+          },
+        ),
+        const SizedBox(width: 10),
+        if (showNavigator)
+          Expanded(
+            child: DateNavigator(
+              label: dateLabel,
+              onPrev: onPrev,
+              onNext: onNext,
+              compact: true,
+            ),
+          )
+        else
+          Expanded(
+            child: Text(
+              'Last 24 months',
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.38),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 // ─── Drill toggle ─────────────────────────────────────────────────────────────
