@@ -10,6 +10,7 @@ import 'package:money_manager/domain/entities/report_filter_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/widgets/bento_card.dart';
+import 'package:money_manager/presentation/widgets/report_category_filter_sheet.dart';
 import 'package:money_manager/presentation/widgets/spending_pie_chart.dart';
 import 'package:money_manager/presentation/widgets/transaction_list_tile.dart';
 
@@ -137,13 +138,18 @@ class _ReportViewState extends ConsumerState<ReportView> {
   }
 
   void _openCategoryFilterSheet(
-      BuildContext context, Map<CategoryEntity, double> categories) {
+    BuildContext context,
+    Map<CategoryEntity, double> categories,
+    List<CategoryEntity> allCategories,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _CategoryFilterSheet(
+      builder: (_) => ReportCategoryFilterSheet(
         categories: categories,
+        allCategories: allCategories,
+        showSubcategories: _showSubcategories,
         initialSelected: Set.from(_categoryFilterIds),
         onApply: (ids) => setState(() => _categoryFilterIds = ids),
       ),
@@ -376,7 +382,7 @@ class _ReportViewState extends ConsumerState<ReportView> {
                         _FilterIconButton(
                           activeCount: _categoryFilterIds.length,
                           onTap: () => _openCategoryFilterSheet(
-                              context, filterSheetCategories),
+                              context, filterSheetCategories, allCategories),
                         ),
                         const SizedBox(width: 8),
                         _SavePresetButton(
@@ -2213,230 +2219,6 @@ class _SavePresetDialogState extends State<_SavePresetDialog> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CategoryFilterSheet extends StatefulWidget {
-  const _CategoryFilterSheet({
-    required this.categories,
-    required this.initialSelected,
-    required this.onApply,
-  });
-
-  final Map<CategoryEntity, double> categories;
-  final Set<int> initialSelected;
-  final ValueChanged<Set<int>> onApply;
-
-  @override
-  State<_CategoryFilterSheet> createState() => _CategoryFilterSheetState();
-}
-
-class _CategoryFilterSheetState extends State<_CategoryFilterSheet> {
-  late Set<int> _selected;
-
-  @override
-  void initState() {
-    super.initState();
-    _selected = Set.from(widget.initialSelected);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).padding.bottom;
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 10),
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          // header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 16, 0),
-            child: Row(
-              children: [
-                const Text(
-                  'FILTER BY CATEGORY',
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const Spacer(),
-                if (_selected.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => setState(() => _selected.clear()),
-                    child: const Text(
-                      'Clear all',
-                      style: TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Icon(
-                      Icons.close_rounded, color: Colors.white54, size: 20),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          // category list
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              itemCount: widget.categories.length,
-              itemBuilder: (_, i) {
-                final entry = widget.categories.entries.elementAt(i);
-                final cat = entry.key;
-                final amount = entry.value;
-                final isSelected = _selected.contains(cat.id);
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    if (isSelected) {
-                      _selected.remove(cat.id);
-                    } else {
-                      _selected.add(cat.id);
-                    }
-                  }),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? cat.color.withValues(alpha: 0.12)
-                          : AppTheme.bgColor,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected
-                            ? cat.color.withValues(alpha: 0.6)
-                            : Colors.white.withValues(alpha: 0.07),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            color: cat.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            cat.name,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : Colors.white70,
-                              fontSize: 14,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          CurrencyFormatter.formatCompact(amount),
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : Colors.white54,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? cat.color
-                                : Colors.transparent,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected ? cat.color : Colors.white24,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: isSelected
-                              ? const Icon(Icons.check_rounded,
-                                  color: Colors.white, size: 12)
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          // apply button
-          Padding(
-            padding:
-                EdgeInsets.fromLTRB(16, 4, 16, 16 + bottomPad),
-            child: SizedBox(
-              width: double.infinity,
-              child: GestureDetector(
-                onTap: () {
-                  widget.onApply(Set.from(_selected));
-                  Navigator.pop(context);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _selected.isEmpty
-                        ? 'Show All'
-                        : 'Apply (${_selected.length})',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

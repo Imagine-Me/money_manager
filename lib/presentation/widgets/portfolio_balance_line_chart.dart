@@ -22,6 +22,7 @@ class PortfolioBalanceLineChart extends StatelessWidget {
     this.lineColor,
     this.compareSpots,
     this.compareLineColor,
+    this.yAxisFromZero = false,
   });
 
   final List<FlSpot> spots;
@@ -40,6 +41,9 @@ class PortfolioBalanceLineChart extends StatelessWidget {
 
   /// Stroke for [compareSpots]; defaults to [_chartCompareGrey].
   final Color? compareLineColor;
+
+  /// When true, Y axis starts at 0 (for cumulative spend / non-negative series).
+  final bool yAxisFromZero;
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +85,7 @@ class PortfolioBalanceLineChart extends StatelessWidget {
       }
     }
     final pad = (maxY - minY).abs() < 0.01 ? 1.0 : (maxY - minY) * 0.12;
-    final chartMinY = minY - pad;
+    final chartMinY = yAxisFromZero ? 0.0 : minY - pad;
     final chartMaxY = maxY + pad;
 
     final hasCompare = compareLineSpots != null;

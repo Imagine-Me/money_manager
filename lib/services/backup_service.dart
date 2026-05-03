@@ -8,6 +8,7 @@ import 'package:money_manager/core/services/preferences_service.dart';
 import 'package:money_manager/data/datasources/local/isar_service.dart';
 import 'package:money_manager/data/models/account_model.dart';
 import 'package:money_manager/data/models/category_model.dart';
+import 'package:money_manager/data/models/custom_report_widget_model.dart';
 import 'package:money_manager/data/models/recurring_transaction_model.dart';
 import 'package:money_manager/data/models/report_filter_model.dart';
 import 'package:money_manager/data/models/transaction_model.dart';
@@ -38,10 +39,12 @@ class BackupService {
     }
     final reportFilters =
         await db.reportFilterModels.where().anyId().findAll();
+    final customReports =
+        await db.customReportWidgetModels.where().anyId().findAll();
 
     final prefs = PreferencesService.instance;
     return {
-      'version': 1,
+      'version': 2,
       'exportedAt': DateTime.now().toIso8601String(),
       'currency': {
         'symbol': prefs.currencySymbol,
@@ -53,6 +56,8 @@ class BackupService {
       'transactions': transactions.map(_transactionToMap).toList(),
       'recurringTransactions': recurring.map(_recurringToMap).toList(),
       'reportFilters': reportFilters.map(_reportFilterToMap).toList(),
+      'customReportWidgets':
+          customReports.map(_customReportWidgetToMap).toList(),
     };
   }
 
@@ -111,6 +116,17 @@ class BackupService {
         'createdAt': m.createdAt.toIso8601String(),
       };
 
+  Map<String, dynamic> _customReportWidgetToMap(CustomReportWidgetModel m) =>
+      {
+        'id': m.id,
+        'name': m.name,
+        'categoryFilterIds': m.categoryFilterIds,
+        'showSubcategories': m.showSubcategories,
+        'createdAt': m.createdAt.toIso8601String(),
+        'transactionType': m.transactionType,
+        'sortOrder': m.sortOrder,
+      };
+
   // ─── Import ──────────────────────────────────────────────────────────────────
 
   Future<void> importData(Map<String, dynamic> data) async {
@@ -126,6 +142,9 @@ class BackupService {
         (data['recurringTransactions'] as List).cast<Map<String, dynamic>>();
     final filterMaps = data.containsKey('reportFilters')
         ? (data['reportFilters'] as List).cast<Map<String, dynamic>>()
+        : <Map<String, dynamic>>[];
+    final customWidgetMaps = data.containsKey('customReportWidgets')
+        ? (data['customReportWidgets'] as List).cast<Map<String, dynamic>>()
         : <Map<String, dynamic>>[];
 
     // Restore currency settings if present
@@ -145,6 +164,7 @@ class BackupService {
       await db.accountModels.clear();
       await db.categoryModels.clear();
       await db.reportFilterModels.clear();
+      await db.customReportWidgetModels.clear();
 
       // Import categories (transactions reference them by link)
       final categories = categoryMaps.map((m) {
@@ -239,6 +259,23 @@ class BackupService {
             ..createdAt = DateTime.parse(m['createdAt'] as String);
         }).toList();
         await db.reportFilterModels.putAll(filters);
+      }
+
+      if (customWidgetMaps.isNotEmpty) {
+        final widgets = customWidgetMaps.map((m) {
+          final w = CustomReportWidgetModel()
+            ..id = m['id'] as int
+            ..name = m['name'] as String
+            ..categoryFilterIds =
+                (m['categoryFilterIds'] as List).cast<int>()
+            ..showSubcategories = m['showSubcategories'] as bool
+            ..createdAt = DateTime.parse(m['createdAt'] as String)
+            ..sortOrder = (m['sortOrder'] as num?)?.toInt() ?? 0;
+          final tt = m['transactionType'];
+          if (tt is String) w.transactionType = tt;
+          return w;
+        }).toList();
+        await db.customReportWidgetModels.putAll(widgets);
       }
     });
   }

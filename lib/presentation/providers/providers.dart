@@ -4,16 +4,19 @@ import 'package:money_manager/data/datasources/local/isar_service.dart';
 import 'package:money_manager/data/repositories/account_repository_impl.dart';
 import 'package:money_manager/data/repositories/category_repository_impl.dart';
 import 'package:money_manager/data/repositories/recurring_transaction_repository_impl.dart';
+import 'package:money_manager/data/repositories/custom_report_widget_repository_impl.dart';
 import 'package:money_manager/data/repositories/report_filter_repository_impl.dart';
 import 'package:money_manager/data/repositories/transaction_repository_impl.dart';
 import 'package:money_manager/domain/entities/account_entity.dart';
 import 'package:money_manager/domain/entities/category_entity.dart';
 import 'package:money_manager/domain/entities/recurring_transaction_entity.dart';
+import 'package:money_manager/domain/entities/custom_report_widget_entity.dart';
 import 'package:money_manager/domain/entities/report_filter_entity.dart';
 import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/domain/repositories/account_repository.dart';
 import 'package:money_manager/domain/repositories/category_repository.dart';
 import 'package:money_manager/domain/repositories/recurring_transaction_repository.dart';
+import 'package:money_manager/domain/repositories/custom_report_widget_repository.dart';
 import 'package:money_manager/domain/repositories/report_filter_repository.dart';
 import 'package:money_manager/domain/repositories/transaction_repository.dart';
 import 'package:money_manager/domain/usecases/analytics_engine.dart';
@@ -188,6 +191,18 @@ final reportFilterRepositoryProvider = Provider<ReportFilterRepository>((ref) {
 final reportFilterListProvider =
     StreamProvider<List<ReportFilterEntity>>((ref) {
   return ref.watch(reportFilterRepositoryProvider).watchAll();
+});
+
+// ─── Custom report widgets (Insights tab) ─────────────────────────────────────
+
+final customReportWidgetRepositoryProvider =
+    Provider<CustomReportWidgetRepository>((ref) {
+  return CustomReportWidgetRepositoryImpl(ref.watch(isarServiceProvider));
+});
+
+final customReportWidgetListProvider =
+    StreamProvider<List<CustomReportWidgetEntity>>((ref) {
+  return ref.watch(customReportWidgetRepositoryProvider).watchAll();
 });
 
 // Export _Analytics as AppAnalytics for use in views.

@@ -10,6 +10,7 @@ import 'package:money_manager/domain/entities/transaction_entity.dart';
 import 'package:money_manager/presentation/providers/providers.dart';
 import 'package:money_manager/presentation/views/report/report_period_data.dart';
 import 'package:money_manager/presentation/views/report/report_burn_store_pie_card.dart';
+import 'package:money_manager/presentation/views/report/report_custom_widgets_section.dart';
 import 'package:money_manager/presentation/views/report/report_monthly_savings_chart_card.dart';
 import 'package:money_manager/presentation/views/report/report_portfolio_balance.dart';
 import 'package:money_manager/presentation/views/report/report_portfolio_summary_panel.dart';
@@ -423,6 +424,13 @@ class _ReportListViewState extends ConsumerState<ReportListView> {
                               subtitle: pieSubtitle,
                               burnTotal: burnTotal,
                               storeTotal: storeTotal,
+                            ),
+                            const SizedBox(height: 12),
+                            ReportCustomWidgetsSection(
+                              period: _period,
+                              selectedDate: _selectedDate,
+                              now: now,
+                              transactions: transactions,
                             ),
                           ],
                         ),
