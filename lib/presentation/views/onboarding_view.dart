@@ -175,7 +175,7 @@ class _OnboardingViewState extends State<OnboardingView> {
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Welcome to\nVaultCash',
+                    'Welcome to\nVault',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 32,

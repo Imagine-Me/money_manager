@@ -102,7 +102,7 @@ class _LoginViewState extends State<LoginView> {
 
               // ── Headline ─────────────────────────────────────────────────
               const Text(
-                'Welcome to\nVaultCash',
+                'Welcome to\nVault',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 36,

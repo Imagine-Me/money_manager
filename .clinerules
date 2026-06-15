@@ -1,0 +1,15 @@
+# Flutter Development Rules
+- Architecture: Follow Clean Architecture (Presentation, Domain, Data layers).
+- Modularity: Organize by features (e.g., `lib/features/auth/...`, `lib/features/profile/...`).
+- State Management: Use Riverpod or BLoC. Keep logic out of UI widgets.
+- Clean Code:
+  - Keep build() methods thin.
+  - Extract reusable widgets into `lib/shared/widgets`.
+  - Use `const` constructors wherever possible.
+  - Use Barrel files (`index.dart`) to clean up imports.
+- Testing: Write unit tests for business logic (Use Cases/Repos) and widget tests for key UI components.
+- Naming: 
+  - Classes: UpperCamelCase.
+  - Files/Folders: snake_case.
+  - Variables/Methods: lowerCamelCase.
+- Safety: Never store API keys or secrets in code. Use `.env` files.

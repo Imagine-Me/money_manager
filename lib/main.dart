@@ -40,7 +40,7 @@ Future<void> main() async {
   // This does not block app startup.
   _tryAutoBackup();
 
-  runApp(ProviderScope(child: VaultCashApp()));
+  runApp(ProviderScope(child: VaultApp()));
 }
 
 /// Silently signs in (if previously authorised) and backs up data.
@@ -56,8 +56,8 @@ void _tryAutoBackup() {
   }).catchError((_) {});
 }
 
-class VaultCashApp extends StatelessWidget {
-  const VaultCashApp({super.key});
+class VaultApp extends StatelessWidget {
+  const VaultApp({super.key});
 
   @override
   Widget build(BuildContext context) {
