@@ -71,7 +71,7 @@ class VaultCashApp extends StatelessWidget {
       home = const LoginView();
     }
     return MaterialApp(
-      title: 'VaultCash',
+      title: 'Vault: Expense Manager',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       home: home,

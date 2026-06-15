@@ -1,11 +1,11 @@
 {
-    "name": "money_manager",
-    "short_name": "money_manager",
+    "name": "Vault: Expense Manager",
+    "short_name": "Vault",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Vault: Expense Manager",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
